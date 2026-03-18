@@ -145,61 +145,65 @@ export default function App() {
 
   // 🌲 RENDER NODE
   function renderNode(node) {
-    return (
-      <div key={node.id} style={{ textAlign: "center" }}>
-        
-        {/* CARD */}
-        <div
-          onClick={() => toggle(node.id)}
-          style={{
-            width: "320px",
-            margin: "0 auto",
-            padding: "12px",
-            borderRadius: "12px",
-            background: "#fff",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            borderLeft: `5px solid ${getColor(node.criticality)}`,
-            cursor: "pointer"
-          }}
-        >
-          <div style={{ fontWeight: "bold" }}>
-            {node.name || node.id}
-          </div>
-
-          <div style={{ fontSize: "12px", color: "#666" }}>
-            ITAM: {node.id}
-          </div>
-
-          <div style={{ fontSize: "12px" }}>
-            {node.criticality || "UNKNOWN"}
-          </div>
-
-          {/* ✅ show only if has children */}
-          {node.children.length > 0 && (
-            <div style={{ fontSize: "11px", marginTop: "5px", color: "#888" }}>
-              Dependencies: {node.children.length}
-            </div>
-          )}
+  return (
+    <div key={node.id} style={{ textAlign: "center" }}>
+      
+      {/* CARD */}
+      <div
+        onClick={() => toggle(node.id)}
+        style={{
+          width: "320px",
+          margin: "0 auto",
+          padding: "12px",
+          borderRadius: "12px",
+          background: "#fff",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          borderLeft: `5px solid ${getColor(node.criticality)}`,
+          cursor: "pointer"
+        }}
+      >
+        <div style={{ fontWeight: "bold" }}>
+          {node.name || node.id}
         </div>
 
-        {/* 🔥 DOTTED CONNECTOR */}
-        {expanded.has(node.id) && node.children.length > 0 && (
-          <div
-            style={{
-              width: "2px",
-              height: "35px",
-              margin: "0 auto",
-              background: "repeating-linear-gradient(to bottom, #bbb, #bbb 4px, transparent 4px, transparent 8px)"
-            }}
-          />
-        )}
+        <div style={{ fontSize: "12px", color: "#666" }}>
+          ITAM: {node.id}
+        </div>
 
-        {/* CHILDREN */}
-        {expanded.has(node.id) &&
-          node.children.map(child => renderNode(child))}
+        <div style={{ fontSize: "12px" }}>
+          {node.criticality || "UNKNOWN"}
+        </div>
+
+        {/* show only if has children */}
+        {node.children.length > 0 && (
+          <div style={{ fontSize: "11px", marginTop: "5px", color: "#888" }}>
+            Dependencies: {node.children.length}
+          </div>
+        )}
       </div>
-    );
-  }
+
+      {/* 🔥 CHILDREN WITH INDIVIDUAL CONNECTORS */}
+      {expanded.has(node.id) &&
+        node.children.map(child => (
+          <div key={child.id} style={{ textAlign: "center" }}>
+            
+            {/* DOTTED LINE PER CHILD */}
+            <div
+              style={{
+                width: "2px",
+                height: "35px",
+                margin: "0 auto",
+                background:
+                  "repeating-linear-gradient(to bottom, #bbb, #bbb 4px, transparent 4px, transparent 8px)"
+              }}
+            />
+
+            {renderNode(child)}
+          </div>
+        ))}
+    </div>
+  );
+}
 
   function getColor(c) {
     if (c === "HIGH") return "#e53935";
