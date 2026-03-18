@@ -1,11 +1,12 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 
 export default function App() {
   const [layers, setLayers] = useState([]);
   const [data, setData] = useState(null);
   const [root, setRoot] = useState("");
-  const [search, setSearch] = useState("");
-  const containerRef = useRef();
+
+  const COL_WIDTH = 300;
+  const ROW_HEIGHT = 110;
 
   useEffect(() => {
     fetch("http://localhost:8080/api/graph")
@@ -13,7 +14,6 @@ export default function App() {
       .then(res => {
         setData(res);
 
-        // auto root
         const counts = {};
         res.links.forEach(l => {
           const src = l.source.id || l.source;
@@ -62,87 +62,57 @@ export default function App() {
     setLayers(result);
   };
 
-  // 🔍 SEARCH HANDLER
-  const handleSearch = (val) => {
-    setSearch(val);
-
-    if (!data) return;
-
-    const match = data.nodes.find(
-      n =>
-        n.id.includes(val) ||
-        (n.name && n.name.toLowerCase().includes(val.toLowerCase()))
-    );
-
-    if (match) {
-      setRoot(match.id);
-      buildLayers(data, match.id);
-    }
-  };
-
-  const handleRootChange = (e) => {
-    const val = e.target.value;
-    setRoot(val);
-    buildLayers(data, val);
-  };
-
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>Dependency Flow View</h2>
+    <div style={{ padding: "20px", background: "#f5f7fa" }}>
+      <h2>Enterprise Dependency Flow</h2>
 
-      {/* 🔍 SEARCH */}
-      <div style={{ marginBottom: "10px" }}>
-        <input
-          placeholder="Search ITAM / Name..."
-          value={search}
-          onChange={e => handleSearch(e.target.value)}
-          style={{ padding: "8px", width: "300px", marginRight: "10px" }}
-        />
-
-        <input
-          placeholder="Root ITAM"
-          value={root}
-          onChange={handleRootChange}
-          style={{ padding: "8px", width: "200px" }}
-        />
-      </div>
-
-      {/* FLOW */}
-      <div
-        ref={containerRef}
-        style={{
-          display: "flex",
-          gap: "60px",
-          overflowX: "auto",
-          position: "relative"
+      {/* ROOT INPUT */}
+      <input
+        value={root}
+        onChange={e => {
+          setRoot(e.target.value);
+          buildLayers(data, e.target.value);
         }}
-      >
-        {layers.map((layer, i) => (
-          <div key={i} style={{ position: "relative" }}>
-            <h4>Level {i}</h4>
+        style={{ padding: "8px", marginBottom: "20px" }}
+      />
 
-            {layer.map((node, j) => (
+      <div style={{ position: "relative", display: "flex" }}>
+        
+        {/* 🔗 CONNECTOR SVG */}
+        <svg
+          width={2000}
+          height={1000}
+          style={{ position: "absolute", top: 0, left: 0 }}
+        >
+          {drawConnections(layers, data?.links || [])}
+        </svg>
+
+        {/* 🧱 COLUMNS */}
+        {layers.map((layer, colIndex) => (
+          <div key={colIndex} style={{ width: COL_WIDTH }}>
+            <h4 style={{ textAlign: "center" }}>Level {colIndex}</h4>
+
+            {layer.map((node, rowIndex) => (
               <div
-                key={j}
-                id={`node-${node.id}`}
+                key={node.id}
                 style={{
-                  margin: "30px 0",
+                  position: "absolute",
+                  left: colIndex * COL_WIDTH + 20,
+                  top: rowIndex * ROW_HEIGHT + 80,
+                  width: 220,
                   padding: "12px",
-                  minWidth: "180px",
                   borderRadius: "12px",
                   background: "#fff",
-                  boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
-                  borderLeft: `6px solid ${getColor(node.criticality)}`
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  borderLeft: `5px solid ${getColor(node.criticality)}`
                 }}
               >
                 <div style={{ fontWeight: "bold" }}>
                   {node.name || node.id}
                 </div>
-
-                <div style={{ fontSize: "12px", color: "#555" }}>
+                <div style={{ fontSize: "12px", color: "#666" }}>
                   {node.id}
                 </div>
-
                 <div style={{ fontSize: "12px" }}>
                   {node.criticality || "UNKNOWN"}
                 </div>
@@ -150,52 +120,53 @@ export default function App() {
             ))}
           </div>
         ))}
-
-        {/* 🔗 CONNECTOR LINES (SVG OVERLAY) */}
-        <svg
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "2000px",
-            height: "1000px",
-            pointerEvents: "none"
-          }}
-        >
-          {drawConnections(layers)}
-        </svg>
       </div>
     </div>
   );
 
-  function drawConnections(layers) {
-    const lines = [];
+  // 🔥 PERFECT CONNECTORS
+  function drawConnections(layers, links) {
+    const paths = [];
 
-    for (let i = 0; i < layers.length - 1; i++) {
-      layers[i].forEach(parent => {
-        layers[i + 1].forEach(child => {
-          // simple visual connection (can be refined)
-          lines.push(
-            <line
-              key={`${parent.id}-${child.id}`}
-              x1={i * 250 + 200}
-              y1={50 + Math.random() * 300}
-              x2={(i + 1) * 250 + 50}
-              y2={50 + Math.random() * 300}
-              stroke="#ccc"
-              strokeWidth="2"
-            />
-          );
+    const linkSet = new Set();
+    links.forEach(l => {
+      const s = l.source.id || l.source;
+      const t = l.target.id || l.target;
+      linkSet.add(`${s}->${t}`);
+    });
+
+    layers.forEach((layer, i) => {
+      if (i === layers.length - 1) return;
+
+      layer.forEach((parent, pi) => {
+        const x1 = i * COL_WIDTH + 240;
+        const y1 = pi * ROW_HEIGHT + 100;
+
+        layers[i + 1].forEach((child, ci) => {
+          const x2 = (i + 1) * COL_WIDTH + 20;
+          const y2 = ci * ROW_HEIGHT + 100;
+
+          if (linkSet.has(`${parent.id}->${child.id}`)) {
+            paths.push(
+              <path
+                key={`${parent.id}-${child.id}`}
+                d={`M${x1},${y1} C${x1 + 80},${y1} ${x2 - 80},${y2} ${x2},${y2}`}
+                stroke="#b0b7c3"
+                strokeWidth="2"
+                fill="none"
+              />
+            );
+          }
         });
       });
-    }
+    });
 
-    return lines;
+    return paths;
   }
 
   function getColor(c) {
-    if (c === "HIGH") return "red";
-    if (c === "MEDIUM") return "orange";
-    return "green";
+    if (c === "HIGH") return "#e53935";
+    if (c === "MEDIUM") return "#fb8c00";
+    return "#43a047";
   }
-          }
+}
