@@ -3,26 +3,38 @@ import React, { useEffect, useState } from "react";
 export default function App() {
   const [data, setData] = useState(null);
   const [rootNode, setRootNode] = useState(null);
-  const [chain, setChain] = useState([]);
+  const [tree, setTree] = useState(null);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
+  const [expanded, setExpanded] = useState(new Set());
 
+  // 🚀 LOAD DATA + AUTO ROOT
   useEffect(() => {
     fetch("http://localhost:8080/api/graph")
       .then(res => res.json())
       .then(res => {
         setData(res);
-        const defaultRoot = res.nodes[0];
-        setRootNode(defaultRoot);
+
+        const counts = {};
+        res.links.forEach(l => {
+          const src = l.source.id || l.source;
+          counts[src] = (counts[src] || 0) + 1;
+        });
+
+        const bestRootId = Object.keys(counts)
+          .sort((a, b) => counts[b] - counts[a])[0];
+
+        const root = res.nodes.find(n => n.id === bestRootId);
+
+        setRootNode(root);
+        buildTree(res, bestRootId);
       });
   }, []);
 
-  // 🔥 BUILD VERTICAL DEPENDENCY
-  const buildChain = (rootId) => {
-    if (!data) return;
-
+  // 🌲 BUILD TREE (SAFE BFS)
+  const buildTree = (data, rootId) => {
     const map = {};
-    data.nodes.forEach(n => (map[n.id] = n));
+    data.nodes.forEach(n => (map[n.id] = { ...n, children: [] }));
 
     const adj = {};
     data.links.forEach(l => {
@@ -34,32 +46,30 @@ export default function App() {
     });
 
     const visited = new Set();
-    const queue = [rootId];
-    const result = [];
 
-    while (queue.length) {
-      const curr = queue.shift();
+    const build = (id) => {
+      if (visited.has(id)) return null;
+      visited.add(id);
 
-      if (visited.has(curr)) continue;
-      visited.add(curr);
+      const node = map[id];
 
-      result.push(map[curr]);
+      node.children = (adj[id] || [])
+        .map(child => build(child))
+        .filter(Boolean);
 
-      (adj[curr] || []).forEach(child => queue.push(child));
-    }
+      return node;
+    };
 
-    setChain(result.slice(1)); // exclude root (already shown)
+    setTree(build(rootId));
+    setExpanded(new Set([rootId])); // expand root
   };
 
   // 🔍 SEARCH
   const handleSearch = (val) => {
     setSearch(val);
 
-    if (!data) return;
-
-    if (!val) {
+    if (!data || !val) {
       setResults([]);
-      setChain([]);
       return;
     }
 
@@ -71,38 +81,37 @@ export default function App() {
     setResults(matches);
   };
 
+  // 🔥 TOGGLE EXPAND
+  const toggle = (id) => {
+    const newSet = new Set(expanded);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setExpanded(newSet);
+  };
+
   return (
-    <div
-      style={{
-        padding: "40px",
-        background: "#f5f7fa",
-        minHeight: "100vh",
-        textAlign: "center"
-      }}
-    >
-      <h2>Dependency Vertical View</h2>
+    <div style={{ padding: "40px", background: "#f5f7fa", minHeight: "100vh" }}>
+      <h2 style={{ textAlign: "center" }}>Enterprise Dependency Explorer</h2>
 
       {/* 🔍 SEARCH */}
-      <input
-        placeholder="Search ITAM / Name..."
-        value={search}
-        onChange={e => handleSearch(e.target.value)}
-        style={{
-          padding: "10px",
-          width: "300px",
-          marginBottom: "20px"
-        }}
-      />
+      <div style={{ textAlign: "center" }}>
+        <input
+          placeholder="Search ITAM / Name..."
+          value={search}
+          onChange={e => handleSearch(e.target.value)}
+          style={{ padding: "10px", width: "300px" }}
+        />
+      </div>
 
-      {/* SEARCH RESULTS */}
+      {/* RESULTS */}
       {results.length > 0 && (
-        <div style={{ marginBottom: "20px" }}>
+        <div style={{ textAlign: "center", marginTop: "10px" }}>
           {results.map(r => (
             <div
               key={r.id}
               onClick={() => {
                 setRootNode(r);
-                buildChain(r.id);
+                buildTree(data, r.id);
                 setResults([]);
                 setSearch("");
               }}
@@ -121,68 +130,72 @@ export default function App() {
         </div>
       )}
 
-      {/* ROOT NODE */}
-      {rootNode && (
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          <Card node={rootNode} />
-        </div>
-      )}
+      {/* 🌲 TREE */}
+      <div style={{ marginTop: "30px", display: "flex", justifyContent: "center" }}>
+        {tree && renderNode(tree, 0)}
+      </div>
+    </div>
+  );
 
-      {/* 🔥 VERTICAL CHAIN */}
-      <div style={{ marginTop: "20px" }}>
-        {chain.map((node, i) => (
-          <div key={node.id} style={{ textAlign: "center" }}>
-            
-            {/* LINE */}
-            <div
-              style={{
-                width: "2px",
-                height: "40px",
-                background: "#ccc",
-                margin: "0 auto"
-              }}
-            />
-
-            {/* CARD */}
-            <Card node={node} />
+  // 🌲 RENDER NODE
+  function renderNode(node, level) {
+    return (
+      <div key={node.id} style={{ textAlign: "center" }}>
+        
+        {/* CARD */}
+        <div
+          onClick={() => toggle(node.id)}
+          style={{
+            width: "320px",
+            margin: "0 auto",
+            padding: "12px",
+            borderRadius: "12px",
+            background: "#fff",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            borderLeft: `5px solid ${getColor(node.criticality)}`,
+            cursor: "pointer"
+          }}
+        >
+          <div style={{ fontWeight: "bold" }}>
+            {node.name || node.id}
           </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
-// 🔥 CARD COMPONENT
-function Card({ node }) {
-  return (
-    <div
-      style={{
-        width: "320px",
-        margin: "0 auto",
-        padding: "12px",
-        borderRadius: "12px",
-        background: "#fff",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-        borderLeft: `5px solid ${getColor(node.criticality)}`
-      }}
-    >
-      <div style={{ fontWeight: "bold" }}>
-        {node.name || node.id}
-      </div>
+          <div style={{ fontSize: "12px", color: "#666" }}>
+            ITAM: {node.id}
+          </div>
 
-      <div style={{ fontSize: "12px", color: "#666" }}>
-        ITAM: {node.id}
-      </div>
+          <div style={{ fontSize: "12px" }}>
+            {node.criticality || "UNKNOWN"}
+          </div>
 
-      <div style={{ fontSize: "12px" }}>
-        {node.criticality || "UNKNOWN"}
-      </div>
-    </div>
-  );
-}
+          {/* 🔥 DEPENDENCY COUNT */}
+          <div style={{ fontSize: "11px", marginTop: "5px", color: "#888" }}>
+            Dependencies: {node.children.length}
+          </div>
+        </div>
 
-function getColor(c) {
-  if (c === "HIGH") return "#e53935";
-  if (c === "MEDIUM") return "#fb8c00";
-  return "#43a047";
+        {/* LINE */}
+        {expanded.has(node.id) && node.children.length > 0 && (
+          <div
+            style={{
+              width: "2px",
+              height: "30px",
+              background: "#ccc",
+              margin: "0 auto"
+            }}
+          />
+        )}
+
+        {/* CHILDREN */}
+        {expanded.has(node.id) &&
+          node.children.map(child => renderNode(child, level + 1))}
+      </div>
+    );
+  }
+
+  function getColor(c) {
+    if (c === "HIGH") return "#e53935";
+    if (c === "MEDIUM") return "#fb8c00";
+    return "#43a047";
+  }
 }
