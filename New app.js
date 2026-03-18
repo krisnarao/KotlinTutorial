@@ -2,15 +2,30 @@ import React, { useEffect, useState } from "react";
 
 export default function App() {
   const [layers, setLayers] = useState([]);
+  const [data, setData] = useState(null);
+  const [root, setRoot] = useState("");
 
   useEffect(() => {
     fetch("http://localhost:8080/api/graph")
       .then(res => res.json())
-      .then(res => buildLayers(res));
+      .then(res => {
+        setData(res);
+
+        // 🔥 AUTO PICK BEST ROOT (max outgoing edges)
+        const counts = {};
+        res.links.forEach(l => {
+          const src = l.source.id || l.source;
+          counts[src] = (counts[src] || 0) + 1;
+        });
+
+        const bestRoot = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+
+        setRoot(bestRoot);
+        buildLayers(res, bestRoot);
+      });
   }, []);
 
-  // 🔥 BUILD LAYERS (BFS)
-  const buildLayers = ({ nodes, links }) => {
+  const buildLayers = ({ nodes, links }, rootId) => {
     const map = {};
     nodes.forEach(n => (map[n.id] = n));
 
@@ -23,10 +38,8 @@ export default function App() {
       adj[src].push(tgt);
     });
 
-    const root = nodes[0].id; // or choose specific ITAM
     const visited = new Set();
-    const queue = [{ id: root, level: 0 }];
-
+    const queue = [{ id: rootId, level: 0 }];
     const result = [];
 
     while (queue.length) {
@@ -44,12 +57,29 @@ export default function App() {
       });
     }
 
+    console.log("LAYERS:", result); // 👈 DEBUG
     setLayers(result);
+  };
+
+  const handleRootChange = (e) => {
+    const newRoot = e.target.value;
+    setRoot(newRoot);
+    buildLayers(data, newRoot);
   };
 
   return (
     <div style={{ padding: "20px" }}>
       <h2>Dependency Flow View</h2>
+
+      {/* 🔥 ROOT SELECTOR */}
+      <div style={{ marginBottom: "20px" }}>
+        <b>Select Root ITAM:</b>{" "}
+        <input
+          value={root}
+          onChange={handleRootChange}
+          placeholder="Enter ITAM"
+        />
+      </div>
 
       <div style={{ display: "flex", gap: "40px", overflowX: "auto" }}>
         {layers.map((layer, i) => (
@@ -62,7 +92,7 @@ export default function App() {
                 style={{
                   margin: "20px 0",
                   padding: "10px",
-                  minWidth: "150px",
+                  minWidth: "180px",
                   borderRadius: "10px",
                   background: "#fff",
                   boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
