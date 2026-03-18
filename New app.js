@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 export default function App() {
   const [data, setData] = useState(null);
   const [rootNode, setRootNode] = useState(null);
-  const [tree, setTree] = useState(null);
+  const [tree, setTree] = useState([]);
   const [expanded, setExpanded] = useState(new Set());
   const [blastNodes, setBlastNodes] = useState(new Set());
   const [search, setSearch] = useState("");
@@ -21,18 +21,17 @@ export default function App() {
           counts[s] = (counts[s] || 0) + 1;
         });
 
-        const bestRootId = Object.keys(counts).sort(
+        const rootId = Object.keys(counts).sort(
           (a, b) => counts[b] - counts[a]
         )[0];
 
-        const root = res.nodes.find(n => n.id === bestRootId);
-
+        const root = res.nodes.find(n => n.id === rootId);
         setRootNode(root);
-        buildTree(res, bestRootId);
+
+        buildTree(res, rootId);
       });
   }, []);
 
-  // 🌲 BUILD TREE (DESTINATIONS ONLY)
   const buildTree = (data, rootId) => {
     const map = {};
     data.nodes.forEach(n => (map[n.id] = { ...n, children: [] }));
@@ -61,16 +60,13 @@ export default function App() {
       return node;
     };
 
-    const fullTree = build(rootId);
-
-    // 🔥 REMOVE ROOT FROM TREE (keep only children)
-    setTree(fullTree?.children || []);
+    const rootTree = build(rootId);
+    setTree(rootTree?.children || []);
     setExpanded(new Set([rootId]));
 
     calculateBlast(rootId, adj);
   };
 
-  // 🔥 BLAST
   const calculateBlast = (rootId, adj) => {
     const affected = new Set();
     const queue = [rootId];
@@ -87,7 +83,6 @@ export default function App() {
     setBlastNodes(affected);
   };
 
-  // 🔍 SEARCH
   const handleSearch = (val) => {
     setSearch(val);
 
@@ -110,7 +105,6 @@ export default function App() {
     setExpanded(newSet);
   };
 
-  // 🎯 RISK
   const getRisk = (rating) => {
     if (rating === 5) return { label: "CRITICAL", color: "#b71c1c" };
     if (rating === 4) return { label: "HIGH", color: "#e53935" };
@@ -131,7 +125,7 @@ export default function App() {
         style={{ padding: 10, width: 300 }}
       />
 
-      {/* RESULTS */}
+      {/* SEARCH RESULTS */}
       {results.length > 0 && (
         <div>
           {results.map(r => (
@@ -157,12 +151,8 @@ export default function App() {
         </div>
       )}
 
-      {/* 🔥 SOURCE CARD (SEPARATE) */}
-      {rootNode && (
-        <div style={{ marginTop: 30 }}>
-          {renderSource(rootNode)}
-        </div>
-      )}
+      {/* SOURCE */}
+      {rootNode && <div style={{ marginTop: 30 }}>{renderSource(rootNode)}</div>}
 
       {/* CONNECTOR */}
       <div style={{
@@ -173,13 +163,10 @@ export default function App() {
       }} />
 
       {/* DESTINATION TREE */}
-      <div>
-        {tree && tree.map(node => renderNode(node))}
-      </div>
+      {tree.map(node => renderNode(node))}
     </div>
   );
 
-  // 🔥 SOURCE CARD
   function renderSource(node) {
     const rating = Number(node.rating || node.bcRating || node.criticality);
     const risk = getRisk(rating);
@@ -201,29 +188,34 @@ export default function App() {
           padding: "2px 6px",
           borderRadius: 4,
           display: "inline-block",
-          marginBottom: 5
+          marginBottom: 6
         }}>
           SOURCE
         </div>
 
-        <div style={{ fontWeight: "bold" }}>
-          {node.name || node.id} ({node.id})
-        </div>
-
+        {/* ✅ INLINE NAME + RISK */}
         <div style={{
-          fontSize: 10,
-          background: risk.color,
-          color: "#fff",
-          padding: "3px 8px",
-          borderRadius: "10px"
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          fontWeight: "bold"
         }}>
-          {risk.label} : {rating}
+          <span>{node.name || node.id} ({node.id})</span>
+
+          <span style={{
+            fontSize: "11px",
+            background: risk.color,
+            color: "#fff",
+            padding: "3px 8px",
+            borderRadius: "10px"
+          }}>
+            {risk.label} : {rating}
+          </span>
         </div>
       </div>
     );
   }
 
-  // 🌲 DESTINATION TREE
   function renderNode(node) {
     const rating = Number(node.rating || node.bcRating || node.criticality);
     const risk = getRisk(rating);
@@ -232,7 +224,7 @@ export default function App() {
     return (
       <div key={node.id} style={{ textAlign: "center" }}>
         
-        {/* LINE */}
+        {/* CONNECTOR */}
         <div style={{
           height: 30,
           width: 2,
@@ -261,23 +253,29 @@ export default function App() {
             padding: "2px 6px",
             borderRadius: 4,
             display: "inline-block",
-            marginBottom: 5
+            marginBottom: 6
           }}>
             DESTINATION
           </div>
 
-          <div style={{ fontWeight: "bold" }}>
-            {node.name || node.id} ({node.id})
-          </div>
-
+          {/* ✅ INLINE NAME + RISK */}
           <div style={{
-            fontSize: 10,
-            background: risk.color,
-            color: "#fff",
-            padding: "3px 8px",
-            borderRadius: "10px"
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            fontWeight: "bold"
           }}>
-            {risk.label} : {rating}
+            <span>{node.name || node.id} ({node.id})</span>
+
+            <span style={{
+              fontSize: "11px",
+              background: risk.color,
+              color: "#fff",
+              padding: "3px 8px",
+              borderRadius: "10px"
+            }}>
+              {risk.label} : {rating}
+            </span>
           </div>
 
           {node.children.length > 0 && (
@@ -293,4 +291,4 @@ export default function App() {
       </div>
     );
   }
-          }
+}
