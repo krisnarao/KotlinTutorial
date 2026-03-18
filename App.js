@@ -1,21 +1,24 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
+import * as d3 from "d3";
 
 export default function App() {
-  const [data, setData] = useState([]);
-  const [search, setSearch] = useState("");
+  const [rows, setRows] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const svgRef = useRef();
 
   useEffect(() => {
     fetch("http://localhost:8080/api/graph")
       .then(res => res.json())
-      .then(res => {
-        const rows = transform(res);
-        setData(rows);
-      });
+      .then(res => setRows(transform(res)));
   }, []);
 
+  useEffect(() => {
+    if (selected) drawGraph(selected);
+  }, [selected]);
+
   const transform = ({ nodes, links }) => {
-    const nodeMap = {};
-    nodes.forEach(n => nodeMap[n.id] = n);
+    const map = {};
+    nodes.forEach(n => (map[n.id] = n));
 
     return links.map(l => {
       const src = l.source.id || l.source;
@@ -23,59 +26,117 @@ export default function App() {
 
       return {
         source: src,
-        destination: tgt,
-        name: nodeMap[tgt]?.name || "",
-        criticality: nodeMap[tgt]?.criticality || "UNKNOWN"
+        target: tgt,
+        name: map[tgt]?.name || "",
+        criticality: map[tgt]?.criticality || "UNKNOWN"
       };
     });
   };
 
-  const filtered = data.filter(row =>
-    row.source.includes(search) ||
-    row.destination.includes(search) ||
-    row.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const drawGraph = (selectedRow) => {
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
 
-  return (
-    <div style={{ padding: "20px" }}>
-      <h2>Dependency Table</h2>
+    const width = 500;
+    const height = 500;
 
-      <input
-        placeholder="Search ITAM / Service"
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        style={{ padding: "8px", marginBottom: "10px", width: "300px" }}
-      />
+    const g = svg.append("g");
 
-      <table border="1" cellPadding="10" style={{ width: "100%" }}>
-        <thead>
-          <tr>
-            <th>Source</th>
-            <th>Destination</th>
-            <th>Name</th>
-            <th>Criticality</th>
-          </tr>
-        </thead>
+    const nodes = [
+      { id: selectedRow.source },
+      { id: selectedRow.target, criticality: selectedRow.criticality }
+    ];
 
-        <tbody>
-          {filtered.map((row, i) => (
-            <tr key={i}>
-              <td>{row.source}</td>
-              <td>{row.destination}</td>
-              <td>{row.name}</td>
-              <td style={{ color: getColor(row.criticality) }}>
-                {row.criticality}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+    const links = [
+      { source: selectedRow.source, target: selectedRow.target }
+    ];
 
-  function getColor(c) {
+    const simulation = d3.forceSimulation(nodes)
+      .force("link", d3.forceLink(links).id(d => d.id).distance(150))
+      .force("charge", d3.forceManyBody().strength(-300))
+      .force("center", d3.forceCenter(width / 2, height / 2));
+
+    const link = g.selectAll("line")
+      .data(links)
+      .enter()
+      .append("line")
+      .attr("stroke", "#aaa");
+
+    const node = g.selectAll("circle")
+      .data(nodes)
+      .enter()
+      .append("circle")
+      .attr("r", 12)
+      .attr("fill", d => getColor(d.criticality));
+
+    const label = g.selectAll("text")
+      .data(nodes)
+      .enter()
+      .append("text")
+      .text(d => d.id)
+      .attr("fontSize", 12);
+
+    simulation.on("tick", () => {
+      link
+        .attr("x1", d => d.source.x)
+        .attr("y1", d => d.source.y)
+        .attr("x2", d => d.target.x)
+        .attr("y2", d => d.target.y);
+
+      node
+        .attr("cx", d => d.x)
+        .attr("cy", d => d.y);
+
+      label
+        .attr("x", d => d.x + 10)
+        .attr("y", d => d.y);
+    });
+  };
+
+  const getColor = (c) => {
     if (c === "HIGH") return "red";
     if (c === "MEDIUM") return "orange";
     return "green";
-  }
+  };
+
+  return (
+    <div style={{ display: "flex", height: "100vh" }}>
+
+      {/* LEFT TABLE */}
+      <div style={{ width: "50%", overflow: "auto", padding: "10px" }}>
+        <h3>Dependency Table</h3>
+
+        <table border="1" cellPadding="8" width="100%">
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th>Destination</th>
+              <th>Name</th>
+              <th>Criticality</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} onClick={() => setSelected(r)} style={{ cursor: "pointer" }}>
+                <td>{r.source}</td>
+                <td>{r.target}</td>
+                <td>{r.name}</td>
+                <td style={{ color: getColor(r.criticality) }}>
+                  {r.criticality}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* RIGHT GRAPH */}
+      <div style={{ width: "50%", borderLeft: "1px solid #ccc" }}>
+        <h3 style={{ padding: "10px" }}>Dependency Graph</h3>
+        <svg ref={svgRef} width="100%" height="90%"></svg>
+      </div>
+
+    </div>
+  );
 }
