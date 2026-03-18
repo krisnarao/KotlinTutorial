@@ -3,32 +3,41 @@ import React, { useEffect, useState } from "react";
 export default function App() {
   const [data, setData] = useState(null);
   const [tree, setTree] = useState(null);
+  const [expanded, setExpanded] = useState(new Set());
+  const [hovered, setHovered] = useState(null);
+  const [blastNodes, setBlastNodes] = useState(new Set());
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
-  const [expanded, setExpanded] = useState(new Set());
+  const [parentMap, setParentMap] = useState({});
 
-  // 🚀 LOAD DATA
   useEffect(() => {
     fetch("http://localhost:8080/api/graph")
       .then(res => res.json())
       .then(res => {
         setData(res);
 
-        // 🔥 auto-select root with max dependencies
+        const pMap = {};
+        res.links.forEach(l => {
+          const s = l.source.id || l.source;
+          const t = l.target.id || l.target;
+          pMap[t] = s;
+        });
+        setParentMap(pMap);
+
         const counts = {};
         res.links.forEach(l => {
-          const src = l.source.id || l.source;
-          counts[src] = (counts[src] || 0) + 1;
+          const s = l.source.id || l.source;
+          counts[s] = (counts[s] || 0) + 1;
         });
 
-        const bestRootId = Object.keys(counts)
-          .sort((a, b) => counts[b] - counts[a])[0];
+        const bestRoot = Object.keys(counts).sort(
+          (a, b) => counts[b] - counts[a]
+        )[0];
 
-        buildTree(res, bestRootId);
+        buildTree(res, bestRoot);
       });
   }, []);
 
-  // 🌲 BUILD TREE
   const buildTree = (data, rootId) => {
     const map = {};
     data.nodes.forEach(n => (map[n.id] = { ...n, children: [] }));
@@ -59,6 +68,24 @@ export default function App() {
 
     setTree(build(rootId));
     setExpanded(new Set([rootId]));
+    calculateBlastRadius(rootId, adj);
+  };
+
+  // 🔥 BLAST RADIUS
+  const calculateBlastRadius = (rootId, adj) => {
+    const affected = new Set();
+    const queue = [rootId];
+
+    while (queue.length) {
+      const curr = queue.shift();
+      affected.add(curr);
+
+      (adj[curr] || []).forEach(child => {
+        if (!affected.has(child)) queue.push(child);
+      });
+    }
+
+    setBlastNodes(affected);
   };
 
   // 🔍 SEARCH
@@ -78,56 +105,80 @@ export default function App() {
     setResults(matches);
   };
 
-  // 🔁 EXPAND / COLLAPSE
   const toggle = (id) => {
     const newSet = new Set(expanded);
-    if (newSet.has(id)) newSet.delete(id);
-    else newSet.add(id);
+    newSet.has(id) ? newSet.delete(id) : newSet.add(id);
     setExpanded(newSet);
   };
 
-  return (
-    <div
-      style={{
-        padding: "40px",
-        background: "#f5f7fa",
-        minHeight: "100vh",
-        textAlign: "center"
-      }}
-    >
-      <h2>Enterprise Dependency Explorer</h2>
+  // 📊 RISK SCORE
+  const getRisk = (count) => {
+    if (count >= 10) return { label: "HIGH", color: "#e53935" };
+    if (count >= 5) return { label: "MEDIUM", color: "#fb8c00" };
+    return { label: "LOW", color: "#43a047" };
+  };
 
-      {/* 🔍 SEARCH */}
-      <input
-        placeholder="Search ITAM / Name..."
-        value={search}
-        onChange={e => handleSearch(e.target.value)}
-        style={{
-          padding: "10px",
-          width: "300px",
-          marginBottom: "20px"
-        }}
-      />
+  // 📁 EXPORT JSON
+  const exportJSON = () => {
+    const blob = new Blob([JSON.stringify(tree, null, 2)], {
+      type: "application/json"
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "dependency-tree.json";
+    a.click();
+  };
+
+  return (
+    <div style={{ padding: 40, background: "#f5f7fa", minHeight: "100vh" }}>
+      <h2 style={{ textAlign: "center" }}>
+        Enterprise Dependency Explorer
+      </h2>
+
+      {/* CONTROLS */}
+      <div style={{ textAlign: "center", marginBottom: 20 }}>
+        <input
+          placeholder="Search ITAM / Name..."
+          value={search}
+          onChange={e => handleSearch(e.target.value)}
+          style={{ padding: 10, width: 300 }}
+        />
+
+        <button
+          onClick={exportJSON}
+          style={{
+            marginLeft: 10,
+            padding: "10px 15px",
+            background: "#1976d2",
+            color: "#fff",
+            border: "none",
+            borderRadius: 6,
+            cursor: "pointer"
+          }}
+        >
+          Export JSON
+        </button>
+      </div>
 
       {/* SEARCH RESULTS */}
       {results.length > 0 && (
-        <div style={{ marginBottom: "20px" }}>
+        <div style={{ textAlign: "center" }}>
           {results.map(r => (
             <div
               key={r.id}
               onClick={() => {
                 buildTree(data, r.id);
-                setResults([]);
                 setSearch("");
+                setResults([]);
               }}
               style={{
-                cursor: "pointer",
-                padding: "8px",
-                margin: "5px auto",
-                width: "300px",
+                padding: 8,
+                margin: 5,
                 background: "#fff",
-                borderRadius: "6px",
-                boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
+                cursor: "pointer",
+                borderRadius: 6
               }}
             >
               {r.name || r.id} ({r.id})
@@ -136,78 +187,83 @@ export default function App() {
         </div>
       )}
 
-      {/* 🌲 TREE */}
-      <div style={{ marginTop: "20px" }}>
+      <div style={{ marginTop: 40, display: "flex", justifyContent: "center" }}>
         {tree && renderNode(tree)}
       </div>
     </div>
   );
 
-  // 🌲 RENDER NODE
   function renderNode(node) {
-  return (
-    <div key={node.id} style={{ textAlign: "center" }}>
-      
-      {/* CARD */}
-      <div
-        onClick={() => toggle(node.id)}
-        style={{
-          width: "320px",
-          margin: "0 auto",
-          padding: "12px",
-          borderRadius: "12px",
-          background: "#fff",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-          borderLeft: `5px solid ${getColor(node.criticality)}`,
-          cursor: "pointer"
-        }}
-      >
-        <div style={{ fontWeight: "bold" }}>
-          {node.name || node.id}
+    const risk = getRisk(node.children.length);
+    const inBlast = blastNodes.has(node.id);
+
+    return (
+      <div style={{ textAlign: "center" }}>
+        
+        {/* CARD */}
+        <div
+          onClick={() => toggle(node.id)}
+          style={{
+            margin: "0 auto",
+            padding: 12,
+            width: 240,
+            borderRadius: 12,
+            background: inBlast ? "#ffebee" : "#fff",
+            borderLeft: `5px solid ${risk.color}`,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            cursor: "pointer"
+          }}
+        >
+          <div style={{ fontWeight: "bold" }}>
+            {node.name || node.id}
+          </div>
+
+          <div style={{ fontSize: 12 }}>ITAM: {node.id}</div>
+
+          {/* RISK BADGE */}
+          <div
+            style={{
+              fontSize: 11,
+              marginTop: 5,
+              color: "#fff",
+              background: risk.color,
+              display: "inline-block",
+              padding: "2px 6px",
+              borderRadius: 4
+            }}
+          >
+            {risk.label}
+          </div>
+
+          {node.children.length > 0 && (
+            <div style={{ fontSize: 11 }}>
+              Dependencies: {node.children.length}
+            </div>
+          )}
         </div>
 
-        <div style={{ fontSize: "12px", color: "#666" }}>
-          ITAM: {node.id}
-        </div>
+        {/* DOTTED LINE */}
+        {expanded.has(node.id) && node.children.length > 0 && (
+          <div
+            style={{
+              height: 30,
+              width: 2,
+              margin: "0 auto",
+              background:
+                "repeating-linear-gradient(to bottom, #bbb, #bbb 4px, transparent 4px, transparent 8px)"
+            }}
+          />
+        )}
 
-        <div style={{ fontSize: "12px" }}>
-          {node.criticality || "UNKNOWN"}
-        </div>
-
-        {/* show only if has children */}
-        {node.children.length > 0 && (
-          <div style={{ fontSize: "11px", marginTop: "5px", color: "#888" }}>
-            Dependencies: {node.children.length}
+        {/* CHILDREN */}
+        {expanded.has(node.id) && node.children.length > 0 && (
+          <div style={{ display: "flex", gap: 40, justifyContent: "center" }}>
+            {node.children.map(child => (
+              <div key={child.id}>{renderNode(child)}</div>
+            ))}
           </div>
         )}
       </div>
-
-      {/* 🔥 CHILDREN WITH INDIVIDUAL CONNECTORS */}
-      {expanded.has(node.id) &&
-        node.children.map(child => (
-          <div key={child.id} style={{ textAlign: "center" }}>
-            
-            {/* DOTTED LINE PER CHILD */}
-            <div
-              style={{
-                width: "2px",
-                height: "35px",
-                margin: "0 auto",
-                background:
-                  "repeating-linear-gradient(to bottom, #bbb, #bbb 4px, transparent 4px, transparent 8px)"
-              }}
-            />
-
-            {renderNode(child)}
-          </div>
-        ))}
-    </div>
-  );
-}
-
-  function getColor(c) {
-    if (c === "HIGH") return "#e53935";
-    if (c === "MEDIUM") return "#fb8c00";
-    return "#43a047";
+    );
   }
-    }
+                }
