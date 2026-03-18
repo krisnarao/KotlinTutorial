@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 
 export default function App() {
   const [data, setData] = useState(null);
+  const [rootNode, setRootNode] = useState(null);
   const [chain, setChain] = useState([]);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
@@ -11,17 +12,20 @@ export default function App() {
       .then(res => res.json())
       .then(res => {
         setData(res);
-        buildChain(res, res.nodes[0].id); // default
+        const defaultRoot = res.nodes[0];
+        setRootNode(defaultRoot);
       });
   }, []);
 
-  // 🔥 BUILD VERTICAL CHAIN (BFS LINEARIZED)
-  const buildChain = ({ nodes, links }, rootId) => {
+  // 🔥 BUILD VERTICAL DEPENDENCY
+  const buildChain = (rootId) => {
+    if (!data) return;
+
     const map = {};
-    nodes.forEach(n => (map[n.id] = n));
+    data.nodes.forEach(n => (map[n.id] = n));
 
     const adj = {};
-    links.forEach(l => {
+    data.links.forEach(l => {
       const s = l.source.id || l.source;
       const t = l.target.id || l.target;
 
@@ -44,10 +48,10 @@ export default function App() {
       (adj[curr] || []).forEach(child => queue.push(child));
     }
 
-    setChain(result);
+    setChain(result.slice(1)); // exclude root (already shown)
   };
 
-  // 🔍 SEARCH (RETURN MULTIPLE MATCHES)
+  // 🔍 SEARCH
   const handleSearch = (val) => {
     setSearch(val);
 
@@ -55,6 +59,7 @@ export default function App() {
 
     if (!val) {
       setResults([]);
+      setChain([]);
       return;
     }
 
@@ -67,7 +72,14 @@ export default function App() {
   };
 
   return (
-    <div style={{ padding: "20px", background: "#f5f7fa" }}>
+    <div
+      style={{
+        padding: "40px",
+        background: "#f5f7fa",
+        minHeight: "100vh",
+        textAlign: "center"
+      }}
+    >
       <h2>Dependency Vertical View</h2>
 
       {/* 🔍 SEARCH */}
@@ -75,25 +87,31 @@ export default function App() {
         placeholder="Search ITAM / Name..."
         value={search}
         onChange={e => handleSearch(e.target.value)}
-        style={{ padding: "10px", width: "300px" }}
+        style={{
+          padding: "10px",
+          width: "300px",
+          marginBottom: "20px"
+        }}
       />
 
-      {/* 🔍 SEARCH RESULTS */}
+      {/* SEARCH RESULTS */}
       {results.length > 0 && (
-        <div style={{ marginTop: "10px" }}>
-          <b>Results:</b>
+        <div style={{ marginBottom: "20px" }}>
           {results.map(r => (
             <div
               key={r.id}
               onClick={() => {
-                buildChain(data, r.id);
+                setRootNode(r);
+                buildChain(r.id);
                 setResults([]);
+                setSearch("");
               }}
               style={{
-                padding: "8px",
                 cursor: "pointer",
+                padding: "8px",
+                margin: "5px auto",
+                width: "300px",
                 background: "#fff",
-                margin: "5px 0",
                 borderRadius: "6px"
               }}
             >
@@ -103,55 +121,68 @@ export default function App() {
         </div>
       )}
 
-      {/* 🔥 VERTICAL FLOW */}
-      <div style={{ marginTop: "30px", marginLeft: "50px" }}>
+      {/* ROOT NODE */}
+      {rootNode && (
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <Card node={rootNode} />
+        </div>
+      )}
+
+      {/* 🔥 VERTICAL CHAIN */}
+      <div style={{ marginTop: "20px" }}>
         {chain.map((node, i) => (
-          <div key={node.id} style={{ position: "relative" }}>
+          <div key={node.id} style={{ textAlign: "center" }}>
             
-            {/* CARD */}
+            {/* LINE */}
             <div
               style={{
-                width: "300px",
-                padding: "12px",
-                borderRadius: "12px",
-                background: "#fff",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                borderLeft: `5px solid ${getColor(node.criticality)}`
+                width: "2px",
+                height: "40px",
+                background: "#ccc",
+                margin: "0 auto"
               }}
-            >
-              <div style={{ fontWeight: "bold" }}>
-                {node.name || node.id}
-              </div>
+            />
 
-              <div style={{ fontSize: "12px", color: "#666" }}>
-                ITAM: {node.id}
-              </div>
-
-              <div style={{ fontSize: "12px" }}>
-                {node.criticality || "UNKNOWN"}
-              </div>
-            </div>
-
-            {/* 🔥 VERTICAL LINE */}
-            {i !== chain.length - 1 && (
-              <div
-                style={{
-                  width: "2px",
-                  height: "40px",
-                  background: "#ccc",
-                  marginLeft: "150px"
-                }}
-              />
-            )}
+            {/* CARD */}
+            <Card node={node} />
           </div>
         ))}
       </div>
     </div>
   );
+}
 
-  function getColor(c) {
-    if (c === "HIGH") return "#e53935";
-    if (c === "MEDIUM") return "#fb8c00";
-    return "#43a047";
-  }
+// 🔥 CARD COMPONENT
+function Card({ node }) {
+  return (
+    <div
+      style={{
+        width: "320px",
+        margin: "0 auto",
+        padding: "12px",
+        borderRadius: "12px",
+        background: "#fff",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+        borderLeft: `5px solid ${getColor(node.criticality)}`
+      }}
+    >
+      <div style={{ fontWeight: "bold" }}>
+        {node.name || node.id}
+      </div>
+
+      <div style={{ fontSize: "12px", color: "#666" }}>
+        ITAM: {node.id}
+      </div>
+
+      <div style={{ fontSize: "12px" }}>
+        {node.criticality || "UNKNOWN"}
+      </div>
+    </div>
+  );
+}
+
+function getColor(c) {
+  if (c === "HIGH") return "#e53935";
+  if (c === "MEDIUM") return "#fb8c00";
+  return "#43a047";
 }
