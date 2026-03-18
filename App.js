@@ -8,53 +8,67 @@ export default function App() {
   useEffect(() => {
     fetch("http://localhost:8080/api/graph")
       .then(res => res.json())
-      .then(setData);
+      .then(res => {
+        console.log("API DATA:", res); // 👈 DEBUG
+        setData(res);
+      })
+      .catch(err => console.error(err));
   }, []);
 
   useEffect(() => {
-    if (data) drawTree(data);
+    if (data && data.nodes && data.links) {
+      drawTree(data);
+    }
   }, [data]);
 
   const drawTree = ({ nodes, links }) => {
     const svg = d3.select(ref.current);
     svg.selectAll("*").remove();
 
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    const width = 1200;
+    const height = 700;
 
     const g = svg.append("g").attr("transform", "translate(100,50)");
 
-    // 🔥 Build Tree
-    const map = {};
-    const childrenSet = new Set();
-
+    // 🔥 STEP 1: Create map
+    const nodeMap = {};
     nodes.forEach(n => {
-      map[n.id] = { ...n, children: [] };
+      nodeMap[n.id] = { ...n, children: [] };
     });
 
-    links.forEach(l => {
-      const src = l.source.id || l.source;
-      const tgt = l.target.id || l.target;
+    // 🔥 STEP 2: Build parent-child
+    const childSet = new Set();
 
-      if (map[src] && map[tgt]) {
-        map[src].children.push(map[tgt]);
-        childrenSet.add(tgt);
+    links.forEach(l => {
+      const src = typeof l.source === "object" ? l.source.id : l.source;
+      const tgt = typeof l.target === "object" ? l.target.id : l.target;
+
+      if (nodeMap[src] && nodeMap[tgt]) {
+        nodeMap[src].children.push(nodeMap[tgt]);
+        childSet.add(tgt);
       }
     });
 
-    // Root detection
-    let rootNode = nodes.find(n => !childrenSet.has(n.id));
-    if (!rootNode) rootNode = nodes[0];
+    // 🔥 STEP 3: Find root safely
+    let rootNode = nodes.find(n => !childSet.has(n.id));
 
-    const root = d3.hierarchy(map[rootNode.id]);
+    if (!rootNode) {
+      console.warn("No root found, using first node");
+      rootNode = nodes[0];
+    }
 
-    // 🔥 Tree Layout (Vertical)
+    const rootData = nodeMap[rootNode.id];
+
+    // 🔥 STEP 4: Build hierarchy
+    const root = d3.hierarchy(rootData);
+
+    // 🔥 STEP 5: Layout
     const treeLayout = d3.tree()
       .size([height - 100, width - 300]);
 
     treeLayout(root);
 
-    // Links
+    // 🔥 LINKS
     g.selectAll("path")
       .data(root.links())
       .enter()
@@ -67,8 +81,8 @@ export default function App() {
         .y(d => d.x)
       );
 
-    // Nodes
-    const node = g.selectAll("g.node")
+    // 🔥 NODES
+    const node = g.selectAll("g")
       .data(root.descendants())
       .enter()
       .append("g")
@@ -94,7 +108,7 @@ export default function App() {
   return (
     <div>
       <h3 style={{ padding: "10px" }}>Vertical Dependency Tree</h3>
-      <svg ref={ref} width="100%" height="90vh"></svg>
+      <svg ref={ref} width="1200" height="700"></svg>
     </div>
   );
 }
