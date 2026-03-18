@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 
 export default function App() {
   const [data, setData] = useState(null);
+  const [rootNode, setRootNode] = useState(null);
   const [tree, setTree] = useState(null);
   const [expanded, setExpanded] = useState(new Set());
   const [blastNodes, setBlastNodes] = useState(new Set());
@@ -20,15 +21,18 @@ export default function App() {
           counts[s] = (counts[s] || 0) + 1;
         });
 
-        const bestRoot = Object.keys(counts).sort(
+        const bestRootId = Object.keys(counts).sort(
           (a, b) => counts[b] - counts[a]
         )[0];
 
-        buildTree(res, bestRoot);
+        const root = res.nodes.find(n => n.id === bestRootId);
+
+        setRootNode(root);
+        buildTree(res, bestRootId);
       });
   }, []);
 
-  // 🌲 BUILD TREE
+  // 🌲 BUILD TREE (DESTINATIONS ONLY)
   const buildTree = (data, rootId) => {
     const map = {};
     data.nodes.forEach(n => (map[n.id] = { ...n, children: [] }));
@@ -57,12 +61,16 @@ export default function App() {
       return node;
     };
 
-    setTree(build(rootId));
+    const fullTree = build(rootId);
+
+    // 🔥 REMOVE ROOT FROM TREE (keep only children)
+    setTree(fullTree?.children || []);
     setExpanded(new Set([rootId]));
+
     calculateBlast(rootId, adj);
   };
 
-  // 🔥 BLAST RADIUS
+  // 🔥 BLAST
   const calculateBlast = (rootId, adj) => {
     const affected = new Set();
     const queue = [rootId];
@@ -102,7 +110,7 @@ export default function App() {
     setExpanded(newSet);
   };
 
-  // 🎯 RISK MAPPING (FIXED)
+  // 🎯 RISK
   const getRisk = (rating) => {
     if (rating === 5) return { label: "CRITICAL", color: "#b71c1c" };
     if (rating === 4) return { label: "HIGH", color: "#e53935" };
@@ -115,43 +123,22 @@ export default function App() {
     <div style={{ padding: 40, background: "#f5f7fa", minHeight: "100vh", textAlign: "center" }}>
       <h2>Enterprise Dependency Explorer</h2>
 
-      {/* SEARCH + EXPORT */}
-      <div>
-        <input
-          placeholder="Search ITAM / Name..."
-          value={search}
-          onChange={e => handleSearch(e.target.value)}
-          style={{ padding: 10, width: 300 }}
-        />
+      {/* SEARCH */}
+      <input
+        placeholder="Search ITAM / Name..."
+        value={search}
+        onChange={e => handleSearch(e.target.value)}
+        style={{ padding: 10, width: 300 }}
+      />
 
-        <button
-          onClick={() => {
-            const blob = new Blob([JSON.stringify(tree, null, 2)]);
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = "dependency.json";
-            a.click();
-          }}
-          style={{
-            marginLeft: 10,
-            padding: "10px 15px",
-            background: "#1976d2",
-            color: "#fff",
-            border: "none",
-            borderRadius: 6
-          }}
-        >
-          Export JSON
-        </button>
-      </div>
-
-      {/* SEARCH RESULTS */}
+      {/* RESULTS */}
       {results.length > 0 && (
         <div>
           {results.map(r => (
             <div
               key={r.id}
               onClick={() => {
+                setRootNode(r);
                 buildTree(data, r.id);
                 setResults([]);
                 setSearch("");
@@ -170,97 +157,140 @@ export default function App() {
         </div>
       )}
 
-      {/* TREE */}
-      <div style={{ marginTop: 40 }}>
-        {tree && renderNode(tree)}
+      {/* 🔥 SOURCE CARD (SEPARATE) */}
+      {rootNode && (
+        <div style={{ marginTop: 30 }}>
+          {renderSource(rootNode)}
+        </div>
+      )}
+
+      {/* CONNECTOR */}
+      <div style={{
+        height: 30,
+        width: 2,
+        margin: "10px auto",
+        background: "repeating-linear-gradient(to bottom, #bbb, #bbb 4px, transparent 4px, transparent 8px)"
+      }} />
+
+      {/* DESTINATION TREE */}
+      <div>
+        {tree && tree.map(node => renderNode(node))}
       </div>
     </div>
   );
 
-  function renderNode(node, isRoot = false) {
-  const rating = Number(node.rating || node.bcRating || node.criticality);
-  const risk = getRisk(rating);
-  const inBlast = blastNodes.has(node.id);
+  // 🔥 SOURCE CARD
+  function renderSource(node) {
+    const rating = Number(node.rating || node.bcRating || node.criticality);
+    const risk = getRisk(rating);
 
-  return (
-    <div style={{ textAlign: "center" }}>
-      
-      {/* CARD */}
-      <div
-        onClick={() => toggle(node.id)}
-        style={{
-          margin: "0 auto",
-          width: 280,
-          padding: 12,
-          borderRadius: 12,
-          background: inBlast ? "#ffebee" : "#fff",
-          borderLeft: `5px solid ${risk.color}`,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-          cursor: "pointer"
-        }}
-      >
-
-        {/* 🔥 SOURCE / DEST LABEL */}
+    return (
+      <div style={{
+        width: 300,
+        margin: "0 auto",
+        padding: 12,
+        borderRadius: 12,
+        background: "#e3f2fd",
+        borderLeft: `5px solid ${risk.color}`,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
+      }}>
         <div style={{
           fontSize: 10,
+          background: "#1976d2",
           color: "#fff",
-          background: isRoot ? "#1976d2" : "#757575",
-          display: "inline-block",
           padding: "2px 6px",
           borderRadius: 4,
+          display: "inline-block",
           marginBottom: 5
         }}>
-          {isRoot ? "SOURCE" : "DESTINATION"}
+          SOURCE
         </div>
 
-        {/* 🔥 NAME + ITAM + RISK */}
+        <div style={{ fontWeight: "bold" }}>
+          {node.name || node.id} ({node.id})
+        </div>
+
         <div style={{
-          fontWeight: "bold",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center"
+          fontSize: 10,
+          background: risk.color,
+          color: "#fff",
+          padding: "3px 8px",
+          borderRadius: "10px"
         }}>
-          <span>
-            {node.name || node.id} ({node.id})
-          </span>
-
-          {/* 🔥 MERGED RISK + RATING */}
-          <span style={{
-            fontSize: "10px",
-            background: risk.color,
-            color: "#fff",
-            padding: "3px 8px",
-            borderRadius: "10px"
-          }}>
-            {risk.label} : {rating || "-"}
-          </span>
+          {risk.label} : {rating}
         </div>
-
-        {node.children.length > 0 && (
-          <div style={{ fontSize: 11 }}>
-            Dependencies: {node.children.length}
-          </div>
-        )}
       </div>
+    );
+  }
 
-      {/* DOTTED LINE */}
-      {expanded.has(node.id) && node.children.length > 0 && (
+  // 🌲 DESTINATION TREE
+  function renderNode(node) {
+    const rating = Number(node.rating || node.bcRating || node.criticality);
+    const risk = getRisk(rating);
+    const inBlast = blastNodes.has(node.id);
+
+    return (
+      <div key={node.id} style={{ textAlign: "center" }}>
+        
+        {/* LINE */}
         <div style={{
           height: 30,
           width: 2,
           margin: "0 auto",
           background: "repeating-linear-gradient(to bottom, #bbb, #bbb 4px, transparent 4px, transparent 8px)"
         }} />
-      )}
 
-      {/* CHILDREN */}
-      {expanded.has(node.id) &&
-        node.children.map(child => (
-          <div key={child.id}>
-            {renderNode(child, false)}
+        {/* CARD */}
+        <div
+          onClick={() => toggle(node.id)}
+          style={{
+            width: 280,
+            margin: "0 auto",
+            padding: 12,
+            borderRadius: 12,
+            background: inBlast ? "#ffebee" : "#fff",
+            borderLeft: `5px solid ${risk.color}`,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            cursor: "pointer"
+          }}
+        >
+          <div style={{
+            fontSize: 10,
+            background: "#757575",
+            color: "#fff",
+            padding: "2px 6px",
+            borderRadius: 4,
+            display: "inline-block",
+            marginBottom: 5
+          }}>
+            DESTINATION
           </div>
-        ))}
-    </div>
-  );
-              }
-              }
+
+          <div style={{ fontWeight: "bold" }}>
+            {node.name || node.id} ({node.id})
+          </div>
+
+          <div style={{
+            fontSize: 10,
+            background: risk.color,
+            color: "#fff",
+            padding: "3px 8px",
+            borderRadius: "10px"
+          }}>
+            {risk.label} : {rating}
+          </div>
+
+          {node.children.length > 0 && (
+            <div style={{ fontSize: 11 }}>
+              Dependencies: {node.children.length}
+            </div>
+          )}
+        </div>
+
+        {/* CHILDREN */}
+        {expanded.has(node.id) &&
+          node.children.map(child => renderNode(child))}
+      </div>
+    );
+  }
+          }
