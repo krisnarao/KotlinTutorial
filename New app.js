@@ -2,19 +2,19 @@ import React, { useEffect, useState } from "react";
 
 export default function App() {
   const [data, setData] = useState(null);
-  const [rootNode, setRootNode] = useState(null);
   const [tree, setTree] = useState(null);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
   const [expanded, setExpanded] = useState(new Set());
 
-  // 🚀 LOAD DATA + AUTO ROOT
+  // 🚀 LOAD DATA
   useEffect(() => {
     fetch("http://localhost:8080/api/graph")
       .then(res => res.json())
       .then(res => {
         setData(res);
 
+        // 🔥 Find best root (max dependencies)
         const counts = {};
         res.links.forEach(l => {
           const src = l.source.id || l.source;
@@ -24,14 +24,11 @@ export default function App() {
         const bestRootId = Object.keys(counts)
           .sort((a, b) => counts[b] - counts[a])[0];
 
-        const root = res.nodes.find(n => n.id === bestRootId);
-
-        setRootNode(root);
         buildTree(res, bestRootId);
       });
   }, []);
 
-  // 🌲 BUILD TREE (SAFE BFS)
+  // 🌲 BUILD TREE
   const buildTree = (data, rootId) => {
     const map = {};
     data.nodes.forEach(n => (map[n.id] = { ...n, children: [] }));
@@ -61,7 +58,7 @@ export default function App() {
     };
 
     setTree(build(rootId));
-    setExpanded(new Set([rootId])); // expand root
+    setExpanded(new Set([rootId]));
   };
 
   // 🔍 SEARCH
@@ -81,7 +78,7 @@ export default function App() {
     setResults(matches);
   };
 
-  // 🔥 TOGGLE EXPAND
+  // 🔁 EXPAND / COLLAPSE
   const toggle = (id) => {
     const newSet = new Set(expanded);
     if (newSet.has(id)) newSet.delete(id);
@@ -90,27 +87,35 @@ export default function App() {
   };
 
   return (
-    <div style={{ padding: "40px", background: "#f5f7fa", minHeight: "100vh" }}>
-      <h2 style={{ textAlign: "center" }}>Enterprise Dependency Explorer</h2>
+    <div
+      style={{
+        padding: "40px",
+        background: "#f5f7fa",
+        minHeight: "100vh",
+        textAlign: "center"
+      }}
+    >
+      <h2>Enterprise Dependency Explorer</h2>
 
       {/* 🔍 SEARCH */}
-      <div style={{ textAlign: "center" }}>
-        <input
-          placeholder="Search ITAM / Name..."
-          value={search}
-          onChange={e => handleSearch(e.target.value)}
-          style={{ padding: "10px", width: "300px" }}
-        />
-      </div>
+      <input
+        placeholder="Search ITAM / Name..."
+        value={search}
+        onChange={e => handleSearch(e.target.value)}
+        style={{
+          padding: "10px",
+          width: "300px",
+          marginBottom: "20px"
+        }}
+      />
 
-      {/* RESULTS */}
+      {/* SEARCH RESULTS */}
       {results.length > 0 && (
-        <div style={{ textAlign: "center", marginTop: "10px" }}>
+        <div style={{ marginBottom: "20px" }}>
           {results.map(r => (
             <div
               key={r.id}
               onClick={() => {
-                setRootNode(r);
                 buildTree(data, r.id);
                 setResults([]);
                 setSearch("");
@@ -121,7 +126,8 @@ export default function App() {
                 margin: "5px auto",
                 width: "300px",
                 background: "#fff",
-                borderRadius: "6px"
+                borderRadius: "6px",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
               }}
             >
               {r.name || r.id} ({r.id})
@@ -131,14 +137,14 @@ export default function App() {
       )}
 
       {/* 🌲 TREE */}
-      <div style={{ marginTop: "30px", display: "flex", justifyContent: "center" }}>
-        {tree && renderNode(tree, 0)}
+      <div style={{ marginTop: "20px" }}>
+        {tree && renderNode(tree)}
       </div>
     </div>
   );
 
   // 🌲 RENDER NODE
-  function renderNode(node, level) {
+  function renderNode(node) {
     return (
       <div key={node.id} style={{ textAlign: "center" }}>
         
@@ -168,10 +174,12 @@ export default function App() {
             {node.criticality || "UNKNOWN"}
           </div>
 
-          {/* 🔥 DEPENDENCY COUNT */}
-          <div style={{ fontSize: "11px", marginTop: "5px", color: "#888" }}>
-            Dependencies: {node.children.length}
-          </div>
+          {/* ✅ ONLY SHOW IF HAS CHILDREN */}
+          {node.children.length > 0 && (
+            <div style={{ fontSize: "11px", marginTop: "5px", color: "#888" }}>
+              Dependencies: {node.children.length}
+            </div>
+          )}
         </div>
 
         {/* LINE */}
@@ -188,7 +196,7 @@ export default function App() {
 
         {/* CHILDREN */}
         {expanded.has(node.id) &&
-          node.children.map(child => renderNode(child, level + 1))}
+          node.children.map(child => renderNode(child))}
       </div>
     );
   }
@@ -198,4 +206,4 @@ export default function App() {
     if (c === "MEDIUM") return "#fb8c00";
     return "#43a047";
   }
-}
+                      }
