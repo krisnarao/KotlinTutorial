@@ -1,117 +1,81 @@
-import React, { useEffect, useRef, useState } from "react";
-import * as d3 from "d3";
+import React, { useEffect, useState } from "react";
 
 export default function App() {
-  const ref = useRef();
-  const [data, setData] = useState(null);
+  const [data, setData] = useState([]);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     fetch("http://localhost:8080/api/graph")
       .then(res => res.json())
-      .then(setData);
+      .then(res => {
+        const rows = transform(res);
+        setData(rows);
+      });
   }, []);
 
-  useEffect(() => {
-    if (data) drawTree(data);
-  }, [data]);
+  const transform = ({ nodes, links }) => {
+    const nodeMap = {};
+    nodes.forEach(n => nodeMap[n.id] = n);
 
-  const buildSafeTree = (nodes, links) => {
-    const map = {};
-    nodes.forEach(n => {
-      map[n.id] = { ...n, children: [] };
-    });
-
-    // adjacency list
-    const adj = {};
-    links.forEach(l => {
+    return links.map(l => {
       const src = l.source.id || l.source;
       const tgt = l.target.id || l.target;
 
-      if (!adj[src]) adj[src] = [];
-      adj[src].push(tgt);
+      return {
+        source: src,
+        destination: tgt,
+        name: nodeMap[tgt]?.name || "",
+        criticality: nodeMap[tgt]?.criticality || "UNKNOWN"
+      };
     });
-
-    // pick root (or force one)
-    const rootId = nodes[0].id;
-
-    // BFS with visited protection
-    const visited = new Set();
-
-    const build = (id) => {
-      if (visited.has(id)) return null; // prevent loop
-      visited.add(id);
-
-      const node = map[id];
-      const children = adj[id] || [];
-
-      node.children = children
-        .map(childId => build(childId))
-        .filter(c => c !== null);
-
-      return node;
-    };
-
-    return build(rootId);
   };
 
-  const drawTree = ({ nodes, links }) => {
-    const svg = d3.select(ref.current);
-    svg.selectAll("*").remove();
+  const filtered = data.filter(row =>
+    row.source.includes(search) ||
+    row.destination.includes(search) ||
+    row.name.toLowerCase().includes(search.toLowerCase())
+  );
 
-    const width = 1200;
-    const height = 700;
+  return (
+    <div style={{ padding: "20px" }}>
+      <h2>Dependency Table</h2>
 
-    const g = svg.append("g").attr("transform", "translate(100,50)");
+      <input
+        placeholder="Search ITAM / Service"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        style={{ padding: "8px", marginBottom: "10px", width: "300px" }}
+      />
 
-    // 🔥 SAFE TREE
-    const treeData = buildSafeTree(nodes, links);
+      <table border="1" cellPadding="10" style={{ width: "100%" }}>
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th>Destination</th>
+            <th>Name</th>
+            <th>Criticality</th>
+          </tr>
+        </thead>
 
-    const root = d3.hierarchy(treeData);
+        <tbody>
+          {filtered.map((row, i) => (
+            <tr key={i}>
+              <td>{row.source}</td>
+              <td>{row.destination}</td>
+              <td>{row.name}</td>
+              <td style={{ color: getColor(row.criticality) }}>
+                {row.criticality}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
-    const treeLayout = d3.tree().size([height - 100, width - 300]);
-    treeLayout(root);
-
-    // links
-    g.selectAll("path")
-      .data(root.links())
-      .enter()
-      .append("path")
-      .attr("fill", "none")
-      .attr("stroke", "#ccc")
-      .attr("stroke-width", 2)
-      .attr("d", d3.linkHorizontal()
-        .x(d => d.y)
-        .y(d => d.x)
-      );
-
-    // nodes
-    const node = g.selectAll("g")
-      .data(root.descendants())
-      .enter()
-      .append("g")
-      .attr("transform", d => `translate(${d.y},${d.x})`);
-
-    node.append("circle")
-      .attr("r", 6)
-      .attr("fill", d => getColor(d.data.criticality));
-
-    node.append("text")
-      .attr("dx", 10)
-      .attr("dy", 4)
-      .text(d => d.data.name || d.data.id)
-      .style("font-size", "12px");
-  };
-
-  const getColor = (c) => {
+  function getColor(c) {
     if (c === "HIGH") return "red";
     if (c === "MEDIUM") return "orange";
     return "green";
-  };
-
-  return (
-    <div>
-      <h3 style={{ padding: "10px" }}>Safe Vertical Dependency Tree</h3>
-      <svg ref={ref} width="1200" height="700"></svg>
-    </div>
-  );
+  }
 }
