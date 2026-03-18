@@ -101,7 +101,14 @@ export default function App() {
   };
 
   const isCritical = (rating) => rating >= 4;
+const getDependencyCount = (nodeId) => {
+  if (!data) return 0;
 
+  return data.links.filter(l => {
+    const src = l.source.id || l.source;
+    return src === nodeId;
+  }).length;
+};
   return (
     <div style={{ padding: 40, background: "#f5f7fa", minHeight: "100vh" }}>
 
