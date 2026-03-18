@@ -14,7 +14,7 @@ export default function App() {
       .then(res => {
         setData(res);
 
-        // 🔥 Find best root (max dependencies)
+        // 🔥 auto-select root with max dependencies
         const counts = {};
         res.links.forEach(l => {
           const src = l.source.id || l.source;
@@ -174,7 +174,7 @@ export default function App() {
             {node.criticality || "UNKNOWN"}
           </div>
 
-          {/* ✅ ONLY SHOW IF HAS CHILDREN */}
+          {/* ✅ show only if has children */}
           {node.children.length > 0 && (
             <div style={{ fontSize: "11px", marginTop: "5px", color: "#888" }}>
               Dependencies: {node.children.length}
@@ -182,14 +182,14 @@ export default function App() {
           )}
         </div>
 
-        {/* LINE */}
+        {/* 🔥 DOTTED CONNECTOR */}
         {expanded.has(node.id) && node.children.length > 0 && (
           <div
             style={{
               width: "2px",
-              height: "30px",
-              background: "#ccc",
-              margin: "0 auto"
+              height: "35px",
+              margin: "0 auto",
+              background: "repeating-linear-gradient(to bottom, #bbb, #bbb 4px, transparent 4px, transparent 8px)"
             }}
           />
         )}
@@ -206,4 +206,4 @@ export default function App() {
     if (c === "MEDIUM") return "#fb8c00";
     return "#43a047";
   }
-                      }
+    }
