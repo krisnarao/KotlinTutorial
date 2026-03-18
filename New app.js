@@ -4,11 +4,9 @@ export default function App() {
   const [data, setData] = useState(null);
   const [tree, setTree] = useState(null);
   const [expanded, setExpanded] = useState(new Set());
-  const [hovered, setHovered] = useState(null);
   const [blastNodes, setBlastNodes] = useState(new Set());
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
-  const [parentMap, setParentMap] = useState({});
 
   useEffect(() => {
     fetch("http://localhost:8080/api/graph")
@@ -16,14 +14,7 @@ export default function App() {
       .then(res => {
         setData(res);
 
-        const pMap = {};
-        res.links.forEach(l => {
-          const s = l.source.id || l.source;
-          const t = l.target.id || l.target;
-          pMap[t] = s;
-        });
-        setParentMap(pMap);
-
+        // pick best root
         const counts = {};
         res.links.forEach(l => {
           const s = l.source.id || l.source;
@@ -38,6 +29,7 @@ export default function App() {
       });
   }, []);
 
+  // 🌲 BUILD TREE
   const buildTree = (data, rootId) => {
     const map = {};
     data.nodes.forEach(n => (map[n.id] = { ...n, children: [] }));
@@ -68,11 +60,11 @@ export default function App() {
 
     setTree(build(rootId));
     setExpanded(new Set([rootId]));
-    calculateBlastRadius(rootId, adj);
+    calculateBlast(rootId, adj);
   };
 
   // 🔥 BLAST RADIUS
-  const calculateBlastRadius = (rootId, adj) => {
+  const calculateBlast = (rootId, adj) => {
     const affected = new Set();
     const queue = [rootId];
 
@@ -80,8 +72,8 @@ export default function App() {
       const curr = queue.shift();
       affected.add(curr);
 
-      (adj[curr] || []).forEach(child => {
-        if (!affected.has(child)) queue.push(child);
+      (adj[curr] || []).forEach(c => {
+        if (!affected.has(c)) queue.push(c);
       });
     }
 
@@ -111,34 +103,21 @@ export default function App() {
     setExpanded(newSet);
   };
 
-  // 📊 RISK SCORE
-  const getRisk = (count) => {
-    if (count >= 10) return { label: "HIGH", color: "#e53935" };
-    if (count >= 5) return { label: "MEDIUM", color: "#fb8c00" };
-    return { label: "LOW", color: "#43a047" };
-  };
-
-  // 📁 EXPORT JSON
-  const exportJSON = () => {
-    const blob = new Blob([JSON.stringify(tree, null, 2)], {
-      type: "application/json"
-    });
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "dependency-tree.json";
-    a.click();
+  // 🎯 CORRECT RISK MAPPING
+  const getRisk = (rating) => {
+    if (rating === 5) return { label: "CRITICAL", color: "#b71c1c" };
+    if (rating === 4) return { label: "HIGH", color: "#e53935" };
+    if (rating === 3) return { label: "MEDIUM", color: "#fb8c00" };
+    if (rating === 2) return { label: "LOW", color: "#43a047" };
+    return { label: "UNKNOWN", color: "#9e9e9e" };
   };
 
   return (
-    <div style={{ padding: 40, background: "#f5f7fa", minHeight: "100vh" }}>
-      <h2 style={{ textAlign: "center" }}>
-        Enterprise Dependency Explorer
-      </h2>
+    <div style={{ padding: 40, background: "#f5f7fa", minHeight: "100vh", textAlign: "center" }}>
+      <h2>Enterprise Dependency Explorer</h2>
 
-      {/* CONTROLS */}
-      <div style={{ textAlign: "center", marginBottom: 20 }}>
+      {/* SEARCH + EXPORT */}
+      <div>
         <input
           placeholder="Search ITAM / Name..."
           value={search}
@@ -147,16 +126,14 @@ export default function App() {
         />
 
         <button
-          onClick={exportJSON}
-          style={{
-            marginLeft: 10,
-            padding: "10px 15px",
-            background: "#1976d2",
-            color: "#fff",
-            border: "none",
-            borderRadius: 6,
-            cursor: "pointer"
+          onClick={() => {
+            const blob = new Blob([JSON.stringify(tree, null, 2)]);
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "dependency.json";
+            a.click();
           }}
+          style={{ marginLeft: 10, padding: "10px 15px", background: "#1976d2", color: "#fff", border: "none", borderRadius: 6 }}
         >
           Export JSON
         </button>
@@ -164,22 +141,16 @@ export default function App() {
 
       {/* SEARCH RESULTS */}
       {results.length > 0 && (
-        <div style={{ textAlign: "center" }}>
+        <div>
           {results.map(r => (
             <div
               key={r.id}
               onClick={() => {
                 buildTree(data, r.id);
-                setSearch("");
                 setResults([]);
+                setSearch("");
               }}
-              style={{
-                padding: 8,
-                margin: 5,
-                background: "#fff",
-                cursor: "pointer",
-                borderRadius: 6
-              }}
+              style={{ margin: 5, padding: 8, background: "#fff", cursor: "pointer", borderRadius: 6 }}
             >
               {r.name || r.id} ({r.id})
             </div>
@@ -187,14 +158,15 @@ export default function App() {
         </div>
       )}
 
-      <div style={{ marginTop: 40, display: "flex", justifyContent: "center" }}>
+      {/* TREE */}
+      <div style={{ marginTop: 40 }}>
         {tree && renderNode(tree)}
       </div>
     </div>
   );
 
   function renderNode(node) {
-    const risk = getRisk(node.children.length);
+    const risk = getRisk(node.criticality);
     const inBlast = blastNodes.has(node.id);
 
     return (
@@ -205,8 +177,8 @@ export default function App() {
           onClick={() => toggle(node.id)}
           style={{
             margin: "0 auto",
+            width: 260,
             padding: 12,
-            width: 240,
             borderRadius: 12,
             background: inBlast ? "#ffebee" : "#fff",
             borderLeft: `5px solid ${risk.color}`,
@@ -214,24 +186,19 @@ export default function App() {
             cursor: "pointer"
           }}
         >
-          <div style={{ fontWeight: "bold" }}>
-            {node.name || node.id}
-          </div>
-
+          <div style={{ fontWeight: "bold" }}>{node.name || node.id}</div>
           <div style={{ fontSize: 12 }}>ITAM: {node.id}</div>
 
-          {/* RISK BADGE */}
-          <div
-            style={{
-              fontSize: 11,
-              marginTop: 5,
-              color: "#fff",
-              background: risk.color,
-              display: "inline-block",
-              padding: "2px 6px",
-              borderRadius: 4
-            }}
-          >
+          {/* RISK */}
+          <div style={{
+            marginTop: 5,
+            fontSize: 11,
+            background: risk.color,
+            color: "#fff",
+            padding: "2px 6px",
+            display: "inline-block",
+            borderRadius: 4
+          }}>
             {risk.label}
           </div>
 
@@ -244,26 +211,22 @@ export default function App() {
 
         {/* DOTTED LINE */}
         {expanded.has(node.id) && node.children.length > 0 && (
-          <div
-            style={{
-              height: 30,
-              width: 2,
-              margin: "0 auto",
-              background:
-                "repeating-linear-gradient(to bottom, #bbb, #bbb 4px, transparent 4px, transparent 8px)"
-            }}
-          />
+          <div style={{
+            height: 30,
+            width: 2,
+            margin: "0 auto",
+            background: "repeating-linear-gradient(to bottom, #bbb, #bbb 4px, transparent 4px, transparent 8px)"
+          }} />
         )}
 
-        {/* CHILDREN */}
-        {expanded.has(node.id) && node.children.length > 0 && (
-          <div style={{ display: "flex", gap: 40, justifyContent: "center" }}>
-            {node.children.map(child => (
-              <div key={child.id}>{renderNode(child)}</div>
-            ))}
-          </div>
-        )}
+        {/* 🔥 VERTICAL CHILDREN (FIXED) */}
+        {expanded.has(node.id) &&
+          node.children.map(child => (
+            <div key={child.id}>
+              {renderNode(child)}
+            </div>
+          ))}
       </div>
     );
   }
-                }
+          }
