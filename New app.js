@@ -14,7 +14,6 @@ export default function App() {
       .then(res => {
         setData(res);
 
-        // pick best root
         const counts = {};
         res.links.forEach(l => {
           const s = l.source.id || l.source;
@@ -103,7 +102,7 @@ export default function App() {
     setExpanded(newSet);
   };
 
-  // 🎯 CORRECT RISK MAPPING
+  // 🎯 RISK MAPPING (FIXED)
   const getRisk = (rating) => {
     if (rating === 5) return { label: "CRITICAL", color: "#b71c1c" };
     if (rating === 4) return { label: "HIGH", color: "#e53935" };
@@ -133,7 +132,14 @@ export default function App() {
             a.download = "dependency.json";
             a.click();
           }}
-          style={{ marginLeft: 10, padding: "10px 15px", background: "#1976d2", color: "#fff", border: "none", borderRadius: 6 }}
+          style={{
+            marginLeft: 10,
+            padding: "10px 15px",
+            background: "#1976d2",
+            color: "#fff",
+            border: "none",
+            borderRadius: 6
+          }}
         >
           Export JSON
         </button>
@@ -150,7 +156,13 @@ export default function App() {
                 setResults([]);
                 setSearch("");
               }}
-              style={{ margin: 5, padding: 8, background: "#fff", cursor: "pointer", borderRadius: 6 }}
+              style={{
+                margin: 5,
+                padding: 8,
+                background: "#fff",
+                cursor: "pointer",
+                borderRadius: 6
+              }}
             >
               {r.name || r.id} ({r.id})
             </div>
@@ -166,7 +178,8 @@ export default function App() {
   );
 
   function renderNode(node) {
-    const risk = getRisk(node.criticality);
+    const rating = Number(node.rating || node.bcRating || node.criticality);
+    const risk = getRisk(rating);
     const inBlast = blastNodes.has(node.id);
 
     return (
@@ -186,21 +199,28 @@ export default function App() {
             cursor: "pointer"
           }}
         >
-          <div style={{ fontWeight: "bold" }}>{node.name || node.id}</div>
-          <div style={{ fontSize: 12 }}>ITAM: {node.id}</div>
-
-          {/* RISK */}
+          {/* 🔥 NAME + RISK INLINE */}
           <div style={{
-            marginTop: 5,
-            fontSize: 11,
-            background: risk.color,
-            color: "#fff",
-            padding: "2px 6px",
-            display: "inline-block",
-            borderRadius: 4
+            fontWeight: "bold",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center"
           }}>
-            {risk.label}
+            <span>{node.name || node.id}</span>
+
+            <span style={{
+              fontSize: "10px",
+              background: risk.color,
+              color: "#fff",
+              padding: "3px 8px",
+              borderRadius: "10px"
+            }}>
+              {risk.label}
+            </span>
           </div>
+
+          <div style={{ fontSize: 12 }}>ITAM: {node.id}</div>
+          <div style={{ fontSize: 12 }}>Rating: {rating || "-"}</div>
 
           {node.children.length > 0 && (
             <div style={{ fontSize: 11 }}>
@@ -219,7 +239,7 @@ export default function App() {
           }} />
         )}
 
-        {/* 🔥 VERTICAL CHILDREN (FIXED) */}
+        {/* CHILDREN (VERTICAL) */}
         {expanded.has(node.id) &&
           node.children.map(child => (
             <div key={child.id}>
@@ -229,4 +249,4 @@ export default function App() {
       </div>
     );
   }
-          }
+              }
