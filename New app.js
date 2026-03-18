@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 export default function App() {
   const [layers, setLayers] = useState([]);
   const [data, setData] = useState(null);
   const [root, setRoot] = useState("");
+  const [search, setSearch] = useState("");
+  const containerRef = useRef();
 
   useEffect(() => {
     fetch("http://localhost:8080/api/graph")
@@ -11,14 +13,15 @@ export default function App() {
       .then(res => {
         setData(res);
 
-        // 🔥 AUTO PICK BEST ROOT (max outgoing edges)
+        // auto root
         const counts = {};
         res.links.forEach(l => {
           const src = l.source.id || l.source;
           counts[src] = (counts[src] || 0) + 1;
         });
 
-        const bestRoot = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+        const bestRoot = Object.keys(counts)
+          .sort((a, b) => counts[b] - counts[a])[0];
 
         setRoot(bestRoot);
         buildLayers(res, bestRoot);
@@ -49,7 +52,6 @@ export default function App() {
       visited.add(id);
 
       if (!result[level]) result[level] = [];
-
       result[level].push(map[id]);
 
       (adj[id] || []).forEach(child => {
@@ -57,46 +59,80 @@ export default function App() {
       });
     }
 
-    console.log("LAYERS:", result); // 👈 DEBUG
     setLayers(result);
   };
 
+  // 🔍 SEARCH HANDLER
+  const handleSearch = (val) => {
+    setSearch(val);
+
+    if (!data) return;
+
+    const match = data.nodes.find(
+      n =>
+        n.id.includes(val) ||
+        (n.name && n.name.toLowerCase().includes(val.toLowerCase()))
+    );
+
+    if (match) {
+      setRoot(match.id);
+      buildLayers(data, match.id);
+    }
+  };
+
   const handleRootChange = (e) => {
-    const newRoot = e.target.value;
-    setRoot(newRoot);
-    buildLayers(data, newRoot);
+    const val = e.target.value;
+    setRoot(val);
+    buildLayers(data, val);
   };
 
   return (
     <div style={{ padding: "20px" }}>
       <h2>Dependency Flow View</h2>
 
-      {/* 🔥 ROOT SELECTOR */}
-      <div style={{ marginBottom: "20px" }}>
-        <b>Select Root ITAM:</b>{" "}
+      {/* 🔍 SEARCH */}
+      <div style={{ marginBottom: "10px" }}>
         <input
+          placeholder="Search ITAM / Name..."
+          value={search}
+          onChange={e => handleSearch(e.target.value)}
+          style={{ padding: "8px", width: "300px", marginRight: "10px" }}
+        />
+
+        <input
+          placeholder="Root ITAM"
           value={root}
           onChange={handleRootChange}
-          placeholder="Enter ITAM"
+          style={{ padding: "8px", width: "200px" }}
         />
       </div>
 
-      <div style={{ display: "flex", gap: "40px", overflowX: "auto" }}>
+      {/* FLOW */}
+      <div
+        ref={containerRef}
+        style={{
+          display: "flex",
+          gap: "60px",
+          overflowX: "auto",
+          position: "relative"
+        }}
+      >
         {layers.map((layer, i) => (
-          <div key={i}>
+          <div key={i} style={{ position: "relative" }}>
             <h4>Level {i}</h4>
 
             {layer.map((node, j) => (
               <div
                 key={j}
+                id={`node-${node.id}`}
                 style={{
-                  margin: "20px 0",
-                  padding: "10px",
+                  margin: "30px 0",
+                  padding: "12px",
                   minWidth: "180px",
-                  borderRadius: "10px",
+                  borderRadius: "12px",
                   background: "#fff",
-                  boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
-                  borderLeft: `5px solid ${getColor(node.criticality)}`
+                  boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+                  borderLeft: `6px solid ${getColor(node.criticality)}`
                 }}
               >
                 <div style={{ fontWeight: "bold" }}>
@@ -114,13 +150,52 @@ export default function App() {
             ))}
           </div>
         ))}
+
+        {/* 🔗 CONNECTOR LINES (SVG OVERLAY) */}
+        <svg
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "2000px",
+            height: "1000px",
+            pointerEvents: "none"
+          }}
+        >
+          {drawConnections(layers)}
+        </svg>
       </div>
     </div>
   );
+
+  function drawConnections(layers) {
+    const lines = [];
+
+    for (let i = 0; i < layers.length - 1; i++) {
+      layers[i].forEach(parent => {
+        layers[i + 1].forEach(child => {
+          // simple visual connection (can be refined)
+          lines.push(
+            <line
+              key={`${parent.id}-${child.id}`}
+              x1={i * 250 + 200}
+              y1={50 + Math.random() * 300}
+              x2={(i + 1) * 250 + 50}
+              y2={50 + Math.random() * 300}
+              stroke="#ccc"
+              strokeWidth="2"
+            />
+          );
+        });
+      });
+    }
+
+    return lines;
+  }
 
   function getColor(c) {
     if (c === "HIGH") return "red";
     if (c === "MEDIUM") return "orange";
     return "green";
   }
-}
+          }
