@@ -1,9 +1,8 @@
-
 import React, { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 
 export default function App() {
-  const svgRef = useRef();
+  const ref = useRef();
   const [data, setData] = useState(null);
 
   useEffect(() => {
@@ -13,143 +12,77 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (data) drawGraph(data);
+    if (data) drawTree(data);
   }, [data]);
 
-  const drawGraph = ({ nodes, links }) => {
-    const svg = d3.select(svgRef.current);
+  const drawTree = ({ nodes, links }) => {
+    const svg = d3.select(ref.current);
     svg.selectAll("*").remove();
 
     const width = window.innerWidth;
     const height = window.innerHeight;
 
-    const g = svg.append("g");
+    const g = svg.append("g").attr("transform", "translate(100,50)");
 
-    // Zoom
-    svg.call(
-      d3.zoom().scaleExtent([0.5, 5]).on("zoom", (event) => {
-        g.attr("transform", event.transform);
-      })
-    );
+    // 🔥 Build Tree
+    const map = {};
+    const childrenSet = new Set();
 
-    // Simulation
-    const simulation = d3.forceSimulation(nodes)
-      .force("link", d3.forceLink(links).id(d => d.id).distance(150))
-      .force("charge", d3.forceManyBody().strength(-500))
-      .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collision", d3.forceCollide().radius(40)); // prevents overlap
+    nodes.forEach(n => {
+      map[n.id] = { ...n, children: [] };
+    });
+
+    links.forEach(l => {
+      const src = l.source.id || l.source;
+      const tgt = l.target.id || l.target;
+
+      if (map[src] && map[tgt]) {
+        map[src].children.push(map[tgt]);
+        childrenSet.add(tgt);
+      }
+    });
+
+    // Root detection
+    let rootNode = nodes.find(n => !childrenSet.has(n.id));
+    if (!rootNode) rootNode = nodes[0];
+
+    const root = d3.hierarchy(map[rootNode.id]);
+
+    // 🔥 Tree Layout (Vertical)
+    const treeLayout = d3.tree()
+      .size([height - 100, width - 300]);
+
+    treeLayout(root);
 
     // Links
-    const link = g.append("g")
-      .selectAll("line")
-      .data(links)
+    g.selectAll("path")
+      .data(root.links())
       .enter()
-      .append("line")
-      .attr("stroke", "#aaa")
-      .attr("opacity", 0.6);
-
-    // Nodes
-    const node = g.append("g")
-      .selectAll("circle")
-      .data(nodes)
-      .enter()
-      .append("circle")
-      .attr("r", 10)
-      .attr("fill", d => getColor(d.criticality))
-      .on("click", (_, d) => highlightBlast(d.id, nodes, links, node, link))
-      .on("mouseover", (_, d) => showTooltip(d))
-      .on("mouseout", hideTooltip)
-      .call(
-        d3.drag()
-          .on("start", dragStart)
-          .on("drag", dragging)
-          .on("end", dragEnd)
+      .append("path")
+      .attr("fill", "none")
+      .attr("stroke", "#ccc")
+      .attr("stroke-width", 2)
+      .attr("d", d3.linkHorizontal()
+        .x(d => d.y)
+        .y(d => d.x)
       );
 
-    // Labels
-    const label = g.append("g")
-      .selectAll("text")
-      .data(nodes)
+    // Nodes
+    const node = g.selectAll("g.node")
+      .data(root.descendants())
       .enter()
-      .append("text")
-      .text(d => d.name || d.id)
-      .attr("fontSize", 10);
+      .append("g")
+      .attr("transform", d => `translate(${d.y},${d.x})`);
 
-    simulation.on("tick", () => {
-      link
-        .attr("x1", d => d.source.x)
-        .attr("y1", d => d.source.y)
-        .attr("x2", d => d.target.x)
-        .attr("y2", d => d.target.y);
+    node.append("circle")
+      .attr("r", 6)
+      .attr("fill", d => getColor(d.data.criticality));
 
-      node
-        .attr("cx", d => d.x)
-        .attr("cy", d => d.y);
-
-      label
-        .attr("x", d => d.x + 12)
-        .attr("y", d => d.y);
-    });
-
-    // Drag functions
-    function dragStart(event, d) {
-      if (!event.active) simulation.alphaTarget(0.3).restart();
-      d.fx = d.x;
-      d.fy = d.y;
-    }
-
-    function dragging(event, d) {
-      d.fx = event.x;
-      d.fy = event.y;
-    }
-
-    function dragEnd(event, d) {
-      if (!event.active) simulation.alphaTarget(0);
-      d.fx = null;
-      d.fy = null;
-    }
-
-    // Tooltip
-    function showTooltip(d) {
-      const tooltip = document.getElementById("tooltip");
-      tooltip.style.display = "block";
-      tooltip.innerHTML = `
-        <b>${d.name}</b><br/>
-        ITAM: ${d.id}<br/>
-        Criticality: ${d.criticality || "N/A"}
-      `;
-    }
-
-    function hideTooltip() {
-      document.getElementById("tooltip").style.display = "none";
-    }
-  };
-
-  // Blast radius
-  const highlightBlast = (id, nodes, links, nodeSel, linkSel) => {
-    const visited = new Set();
-    const queue = [id];
-
-    while (queue.length) {
-      const curr = queue.shift();
-      visited.add(curr);
-
-      links.forEach(l => {
-        const src = l.source.id || l.source;
-        const tgt = l.target.id || l.target;
-
-        if (src === curr && !visited.has(tgt)) {
-          queue.push(tgt);
-        }
-      });
-    }
-
-    nodeSel.attr("opacity", d => (visited.has(d.id) ? 1 : 0.1));
-
-    linkSel.attr("stroke", d => {
-      const src = d.source.id || d.source;
-      return visited.has(src) ? "red" : "#ccc";
-    });
+    node.append("text")
+      .attr("dx", 10)
+      .attr("dy", 4)
+      .text(d => d.data.name || d.data.id)
+      .style("font-size", "12px");
   };
 
   const getColor = (c) => {
@@ -160,32 +93,8 @@ export default function App() {
 
   return (
     <div>
-      <div style={{ padding: "10px" }}>
-        🔍 Search:
-        <input
-          onChange={(e) => searchNode(e.target.value)}
-          placeholder="Enter ITAM"
-        />
-      </div>
-
-      <div
-        id="tooltip"
-        style={{
-          position: "absolute",
-          background: "#333",
-          color: "#fff",
-          padding: "5px",
-          display: "none"
-        }}
-      />
-
-      <svg ref={svgRef} width="100%" height="90vh"></svg>
+      <h3 style={{ padding: "10px" }}>Vertical Dependency Tree</h3>
+      <svg ref={ref} width="100%" height="90vh"></svg>
     </div>
   );
-
-  function searchNode(val) {
-    d3.selectAll("circle")
-      .attr("stroke", d => (d.id === val ? "black" : null))
-      .attr("strokeWidth", d => (d.id === val ? 3 : 1));
-  }
 }
