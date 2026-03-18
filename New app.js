@@ -177,76 +177,90 @@ export default function App() {
     </div>
   );
 
-  function renderNode(node) {
-    const rating = Number(node.rating || node.bcRating || node.criticality);
-    const risk = getRisk(rating);
-    const inBlast = blastNodes.has(node.id);
+  function renderNode(node, isRoot = false) {
+  const rating = Number(node.rating || node.bcRating || node.criticality);
+  const risk = getRisk(rating);
+  const inBlast = blastNodes.has(node.id);
 
-    return (
-      <div style={{ textAlign: "center" }}>
-        
-        {/* CARD */}
-        <div
-          onClick={() => toggle(node.id)}
-          style={{
-            margin: "0 auto",
-            width: 260,
-            padding: 12,
-            borderRadius: 12,
-            background: inBlast ? "#ffebee" : "#fff",
-            borderLeft: `5px solid ${risk.color}`,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            cursor: "pointer"
-          }}
-        >
-          {/* 🔥 NAME + RISK INLINE */}
-          <div style={{
-            fontWeight: "bold",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center"
-          }}>
-            <span>{node.name || node.id}</span>
+  return (
+    <div style={{ textAlign: "center" }}>
+      
+      {/* CARD */}
+      <div
+        onClick={() => toggle(node.id)}
+        style={{
+          margin: "0 auto",
+          width: 280,
+          padding: 12,
+          borderRadius: 12,
+          background: inBlast ? "#ffebee" : "#fff",
+          borderLeft: `5px solid ${risk.color}`,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          cursor: "pointer"
+        }}
+      >
 
-            <span style={{
-              fontSize: "10px",
-              background: risk.color,
-              color: "#fff",
-              padding: "3px 8px",
-              borderRadius: "10px"
-            }}>
-              {risk.label}
-            </span>
-          </div>
-
-          <div style={{ fontSize: 12 }}>ITAM: {node.id}</div>
-          <div style={{ fontSize: 12 }}>Rating: {rating || "-"}</div>
-
-          {node.children.length > 0 && (
-            <div style={{ fontSize: 11 }}>
-              Dependencies: {node.children.length}
-            </div>
-          )}
+        {/* 🔥 SOURCE / DEST LABEL */}
+        <div style={{
+          fontSize: 10,
+          color: "#fff",
+          background: isRoot ? "#1976d2" : "#757575",
+          display: "inline-block",
+          padding: "2px 6px",
+          borderRadius: 4,
+          marginBottom: 5
+        }}>
+          {isRoot ? "SOURCE" : "DESTINATION"}
         </div>
 
-        {/* DOTTED LINE */}
-        {expanded.has(node.id) && node.children.length > 0 && (
-          <div style={{
-            height: 30,
-            width: 2,
-            margin: "0 auto",
-            background: "repeating-linear-gradient(to bottom, #bbb, #bbb 4px, transparent 4px, transparent 8px)"
-          }} />
-        )}
+        {/* 🔥 NAME + ITAM + RISK */}
+        <div style={{
+          fontWeight: "bold",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}>
+          <span>
+            {node.name || node.id} ({node.id})
+          </span>
 
-        {/* CHILDREN (VERTICAL) */}
-        {expanded.has(node.id) &&
-          node.children.map(child => (
-            <div key={child.id}>
-              {renderNode(child)}
-            </div>
-          ))}
+          {/* 🔥 MERGED RISK + RATING */}
+          <span style={{
+            fontSize: "10px",
+            background: risk.color,
+            color: "#fff",
+            padding: "3px 8px",
+            borderRadius: "10px"
+          }}>
+            {risk.label} : {rating || "-"}
+          </span>
+        </div>
+
+        {node.children.length > 0 && (
+          <div style={{ fontSize: 11 }}>
+            Dependencies: {node.children.length}
+          </div>
+        )}
       </div>
-    );
-  }
+
+      {/* DOTTED LINE */}
+      {expanded.has(node.id) && node.children.length > 0 && (
+        <div style={{
+          height: 30,
+          width: 2,
+          margin: "0 auto",
+          background: "repeating-linear-gradient(to bottom, #bbb, #bbb 4px, transparent 4px, transparent 8px)"
+        }} />
+      )}
+
+      {/* CHILDREN */}
+      {expanded.has(node.id) &&
+        node.children.map(child => (
+          <div key={child.id}>
+            {renderNode(child, false)}
+          </div>
+        ))}
+    </div>
+  );
+              }
               }
