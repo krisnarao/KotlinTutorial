@@ -12,3 +12,8 @@ CREATE TABLE incident (
     embedding VECTOR(1536),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+INSERT INTO incident (title, embedding)
+VALUES (
+  'TESTING',
+  array_fill(0.1, ARRAY[1536])::vector
+);
