@@ -17,3 +17,88 @@ VALUES (
   'TESTING',
   array_fill(0.1, ARRAY[1536])::vector
 );
+
+<dependencies>
+
+    <!-- Spring Boot -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <!-- JDBC -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-jdbc</artifactId>
+    </dependency>
+
+    <!-- PostgreSQL -->
+    <dependency>
+        <groupId>org.postgresql</groupId>
+        <artifactId>postgresql</artifactId>
+    </dependency>
+
+    <!-- Lombok -->
+    <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <optional>true</optional>
+    </dependency>
+
+</dependencies>
+
+
+
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/incident_db
+    username: postgres
+    password: postgres
+
+  jackson:
+    serialization:
+      WRITE_DATES_AS_TIMESTAMPS: false
+
+@Data
+public class Incident {
+
+    private Long id;
+    private String title;
+    private String description;
+    private String service;
+    private String resolution;
+}
+@Data
+public class IncidentRequest {
+    private String title;
+    private String description;
+    private String service;
+    private String resolution;
+}
+
+@Data
+@AllArgsConstructor
+public class IncidentResponse {
+    private Long id;
+    private String title;
+    private String resolution;
+    private double distance;
+}
+
+
+@Component
+public class EmbeddingUtil {
+
+    public String generateEmbedding(String text) {
+
+        // TEMP: generate dummy 1536 vector
+        List<Double> vector = new ArrayList<>();
+
+        for (int i = 0; i < 1536; i++) {
+            vector.add(Math.random());
+        }
+
+        return vector.toString(); // "[0.1, 0.2, ...]"
+    }
+}
