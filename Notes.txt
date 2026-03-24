@@ -102,3 +102,94 @@ public class EmbeddingUtil {
         return vector.toString(); // "[0.1, 0.2, ...]"
     }
 }
+
+
+@Repository
+public class IncidentRepository {
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    public void save(IncidentRequest request, String embedding) {
+
+        String sql = """
+            INSERT INTO incident (title, description, service, resolution, embedding)
+            VALUES (?, ?, ?, ?, ?::vector)
+        """;
+
+        jdbcTemplate.update(sql,
+                request.getTitle(),
+                request.getDescription(),
+                request.getService(),
+                request.getResolution(),
+                embedding
+        );
+    }
+
+    public List<IncidentResponse> findSimilar(String embedding) {
+
+        String sql = """
+            SELECT id, title, resolution,
+                   embedding <-> ?::vector AS distance
+            FROM incident
+            ORDER BY distance
+            LIMIT 3
+        """;
+
+        return jdbcTemplate.query(sql, new Object[]{embedding}, (rs, rowNum) ->
+                new IncidentResponse(
+                        rs.getLong("id"),
+                        rs.getString("title"),
+                        rs.getString("resolution"),
+                        rs.getDouble("distance")
+                )
+        );
+    }
+}
+
+@Service
+public class IncidentService {
+
+    @Autowired
+    private IncidentRepository repository;
+
+    @Autowired
+    private EmbeddingUtil embeddingUtil;
+
+    public void createIncident(IncidentRequest request) {
+
+        String embedding = embeddingUtil.generateEmbedding(
+                request.getTitle() + " " + request.getDescription()
+        );
+
+        repository.save(request, embedding);
+    }
+
+    public List<IncidentResponse> search(String query) {
+
+        String embedding = embeddingUtil.generateEmbedding(query);
+
+        return repository.findSimilar(embedding);
+    }
+}
+
+
+@RestController
+@RequestMapping("/api/incidents")
+public class IncidentController {
+
+    @Autowired
+    private IncidentService service;
+
+    @PostMapping
+    public ResponseEntity<?> create(@RequestBody IncidentRequest request) {
+        service.createIncident(request);
+        return ResponseEntity.ok("Saved");
+    }
+
+    @PostMapping("/search")
+    public ResponseEntity<?> search(@RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(service.search(body.get("query")));
+    }
+}
+
