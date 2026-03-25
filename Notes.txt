@@ -332,3 +332,15 @@ button {
   padding: 10px;
   margin-top: 10px;
 }
+@Configuration
+public class CorsConfig implements WebMvcConfigurer {
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**")
+                .allowedOrigins("http://localhost:5173")
+                .allowedMethods("*")   // VERY IMPORTANT
+                .allowedHeaders("*")
+                .allowCredentials(true);
+    }
+}
