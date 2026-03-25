@@ -193,3 +193,142 @@ public class IncidentController {
     }
 }
 
+import { useState } from "react";
+import API from "../api";
+
+export default function CreateIncident() {
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    service: "",
+    resolution: "",
+  });
+
+  const handleSubmit = async () => {
+    await API.post("", form);
+    alert("Incident saved!");
+  };
+
+  return (
+    <div className="card">
+      <h2>Create Incident</h2>
+
+      <input
+        placeholder="Title"
+        onChange={(e) => setForm({ ...form, title: e.target.value })}
+      />
+      <textarea
+        placeholder="Description"
+        onChange={(e) => setForm({ ...form, description: e.target.value })}
+      />
+      <input
+        placeholder="Service"
+        onChange={(e) => setForm({ ...form, service: e.target.value })}
+      />
+      <input
+        placeholder="Resolution"
+        onChange={(e) => setForm({ ...form, resolution: e.target.value })}
+      />
+
+      <button onClick={handleSubmit}>Save</button>
+    </div>
+  );
+}
+
+
+import { useState } from "react";
+import API from "../api";
+import Results from "./Results";
+
+export default function SearchIncident() {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+
+  const search = async () => {
+    const res = await API.post("/search", { query });
+    setResults(res.data);
+  };
+
+  return (
+    <div className="card">
+      <h2>Search Incidents</h2>
+
+      <input
+        placeholder="Enter issue (e.g., CPU spike)"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+
+      <button onClick={search}>Search</button>
+
+      <Results results={results} />
+    </div>
+  );
+}
+
+export default function Results({ results }) {
+  return (
+    <div>
+      <h3>Results</h3>
+
+      {results.map((item, index) => (
+        <div key={index} className="result-card">
+          <h4>{item.title}</h4>
+          <p><b>Fix:</b> {item.resolution}</p>
+          <p><b>Similarity:</b> {item.distance.toFixed(4)}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+import CreateIncident from "./components/CreateIncident";
+import SearchIncident from "./components/SearchIncident";
+import "./App.css";
+
+function App() {
+  return (
+    <div className="container">
+      <h1>🚀 Incident Knowledge Engine</h1>
+
+      <CreateIncident />
+      <SearchIncident />
+    </div>
+  );
+}
+
+export default App;
+
+
+.container {
+  max-width: 800px;
+  margin: auto;
+  font-family: Arial;
+}
+
+.card {
+  border: 1px solid #ddd;
+  padding: 20px;
+  margin: 20px 0;
+  border-radius: 10px;
+}
+
+input, textarea {
+  width: 100%;
+  margin: 8px 0;
+  padding: 8px;
+}
+
+button {
+  padding: 10px;
+  background: black;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.result-card {
+  border: 1px solid #eee;
+  padding: 10px;
+  margin-top: 10px;
+}
