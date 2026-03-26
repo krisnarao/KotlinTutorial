@@ -1,87 +1,41 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: df-db-sit-omf
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: df-db-sit-omf
-  template:
-    metadata:
-      labels:
-        app: df-db-sit-omf
-    spec:
-      containers:
-        - name: postgres
-          image: postgres:16
+lifecycle:
+  postStart:
+    exec:
+      command:
+        - sh
+        - -c
+        - >
+          set -x;
+          echo "POSTSTART TRIGGERED";
 
-          ports:
-            - containerPort: 5432
+          sleep 5;
 
-          env:
-            - name: POSTGRES_DB
-              value: omfsitdb
-            - name: POSTGRES_USER
-              value: db_app_admin
-            - name: POSTGRES_PASSWORD
-              value: Test@12345
-            - name: PGDATA
-              value: /var/lib/postgresql/data/pgdata
+          if ! command -v pg_isready >/dev/null 2>&1; then
+            echo "pg_isready NOT FOUND";
+            exit 1;
+          fi;
 
-          volumeMounts:
-            - name: postgres-storage
-              mountPath: /var/lib/postgresql/data
+          echo "WAITING FOR DB";
 
-            - name: host-backup
-              mountPath: /tmp
+          until pg_isready -h localhost -U $POSTGRES_USER; do
+            echo "waiting...";
+            sleep 3;
+          done;
 
-          #################################
-          # ✅ FIXED POSTSTART RESTORE
-          #################################
-          lifecycle:
-            postStart:
-              exec:
-                command:
-                  - sh
-                  - -c
-                  - >
-                    echo "===== WAITING FOR POSTGRES =====";
-                    until pg_isready -h localhost -U $POSTGRES_USER; do
-                      echo "Waiting for DB...";
-                      sleep 3;
-                    done;
-                    echo "===== DB READY =====";
+          echo "DB READY";
 
-                    if [ -f /tmp/backup_omf.sql ]; then
-                      echo "Backup file found";
+          ls -l /tmp;
 
-                      if [ -f /var/lib/postgresql/data/pgdata/.restore_done ]; then
-                        echo "Restore already done. Skipping.";
-                        exit 0;
-                      fi;
+          if [ -f /tmp/backup_omf.sql ]; then
+            echo "FOUND BACKUP";
 
-                      echo "===== STARTING RESTORE =====";
+            PGPASSWORD=$POSTGRES_PASSWORD psql \
+              -h localhost \
+              -U $POSTGRES_USER \
+              -d $POSTGRES_DB \
+              -f /tmp/backup_omf.sql;
 
-                      PGPASSWORD=$POSTGRES_PASSWORD psql \
-                        -h localhost \
-                        -U $POSTGRES_USER \
-                        -d $POSTGRES_DB \
-                        -f /tmp/backup_omf.sql;
-
-                      echo "===== RESTORE COMPLETED =====";
-
-                      touch /var/lib/postgresql/data/pgdata/.restore_done;
-                    else
-                      echo "Backup file NOT found in /tmp";
-                    fi;
-
-      volumes:
-        - name: postgres-storage
-          persistentVolumeClaim:
-            claimName: pgdata-omfsit-pvc
-
-        - name: host-backup
-          hostPath:
-            path: /tmp
-            type: Directory
+            echo "RESTORE DONE";
+          else
+            echo "NO BACKUP FILE";
+          fi;
