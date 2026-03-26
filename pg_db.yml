@@ -37,7 +37,7 @@ spec:
               mountPath: /tmp
 
           #################################
-          # 🔥 FIXED RESTORE LOGIC
+          # ✅ FIXED POSTSTART RESTORE
           #################################
           lifecycle:
             postStart:
@@ -45,38 +45,36 @@ spec:
                 command:
                   - sh
                   - -c
-                  - |
-                    echo "===== WAITING FOR POSTGRES ====="
-
+                  - >
+                    echo "===== WAITING FOR POSTGRES =====";
                     until pg_isready -h localhost -U $POSTGRES_USER; do
-                      echo "Waiting for DB..."
-                      sleep 3
-                    done
-
-                    echo "===== DB READY ====="
+                      echo "Waiting for DB...";
+                      sleep 3;
+                    done;
+                    echo "===== DB READY =====";
 
                     if [ -f /tmp/backup_omf.sql ]; then
-                      echo "Backup file found"
+                      echo "Backup file found";
 
                       if [ -f /var/lib/postgresql/data/pgdata/.restore_done ]; then
-                        echo "Restore already done. Skipping."
-                        exit 0
-                      fi
+                        echo "Restore already done. Skipping.";
+                        exit 0;
+                      fi;
 
-                      echo "===== STARTING RESTORE ====="
+                      echo "===== STARTING RESTORE =====";
 
                       PGPASSWORD=$POSTGRES_PASSWORD psql \
                         -h localhost \
                         -U $POSTGRES_USER \
                         -d $POSTGRES_DB \
-                        -f /tmp/backup_omf.sql
+                        -f /tmp/backup_omf.sql;
 
-                      echo "===== RESTORE COMPLETED ====="
+                      echo "===== RESTORE COMPLETED =====";
 
-                      touch /var/lib/postgresql/data/pgdata/.restore_done
+                      touch /var/lib/postgresql/data/pgdata/.restore_done;
                     else
-                      echo "Backup file NOT found in /tmp"
-                    fi
+                      echo "Backup file NOT found in /tmp";
+                    fi;
 
       volumes:
         - name: postgres-storage
