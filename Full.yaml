@@ -1,0 +1,143 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pgdata-omfsit-pv
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: standard
+  hostPath:
+    path: /mnt/data/pgdata-omfsit
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pgdata-omfsit-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: df-db-omf
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: df-db-omf
+  template:
+    metadata:
+      labels:
+        app: df-db-omf
+    spec:
+
+      #################################
+      # ✅ INIT CONTAINER (COPY SQL)
+      #################################
+      initContainers:
+        - name: copy-backup
+          image: busybox
+          command:
+            - sh
+            - -c
+            - |
+              echo "Copying backup file..."
+              cp /source/backup.sql /tmp/backup.sql
+              echo "File copied"
+              ls -l /tmp
+
+          volumeMounts:
+            - name: backup-volume
+              mountPath: /tmp
+
+            - name: host-backup
+              mountPath: /source
+
+      #################################
+      # ✅ MAIN POSTGRES CONTAINER
+      #################################
+      containers:
+        - name: postgres
+          image: postgres:16
+
+          ports:
+            - containerPort: 5432
+
+          env:
+            - name: POSTGRES_DB
+              value: omfsitdb
+            - name: POSTGRES_USER
+              value: db_app_admin
+            - name: POSTGRES_PASSWORD
+              value: Test@12345
+
+            # 🔥 IMPORTANT FIX
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+
+            - name: backup-volume
+              mountPath: /tmp
+
+          #################################
+          # ✅ AUTO RESTORE
+          #################################
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - sh
+                  - -c
+                  - >
+                    echo "Waiting for DB...";
+                    sleep 10;
+                    echo "Restoring DB...";
+                    PGPASSWORD=$POSTGRES_PASSWORD psql
+                    -U $POSTGRES_USER
+                    -d $POSTGRES_DB
+                    -h localhost
+                    -f /tmp/backup.sql || true;
+                    echo "Restore completed";
+
+      #################################
+      # ✅ VOLUMES
+      #################################
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: pgdata-omfsit-pvc
+
+        - name: backup-volume
+          emptyDir: {}
+
+        - name: host-backup
+          hostPath:
+            path: /tmp/backup.sql   # 👈 VM path
+            type: File
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: default
+spec:
+  type: NodePort
+  selector:
+    app: df-db-omf
+  ports:
+    - port: 5401
+      targetPort: 5432
+      nodePort: 30541
