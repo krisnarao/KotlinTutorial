@@ -1,98 +1,89 @@
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: pgdata-pv
-spec:
-  capacity:
-    storage: 5Gi
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: standard
-  persistentVolumeReclaimPolicy: Retain
-  hostPath:
-    path: /mnt/data/pgdata
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pgdata-pvc
-  namespace: default
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: standard
-  resources:
-    requests:
-      storage: 5Gi
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: df-db-omf
-  namespace: default
+  name: df-db-sit-omf
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: df-db-omf
+      app: df-db-sit-omf
   template:
     metadata:
       labels:
-        app: df-db-omf
+        app: df-db-sit-omf
     spec:
       containers:
         - name: postgres
-          image: cache.artifactory.global.standardchartered.com/postgres:16
+          image: postgres:16
+
           ports:
             - containerPort: 5432
 
           env:
             - name: POSTGRES_DB
-              value: omfdevdb
+              value: omfsitdb
             - name: POSTGRES_USER
               value: db_app_admin
             - name: POSTGRES_PASSWORD
               value: Test@12345
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
 
           volumeMounts:
             - name: postgres-storage
-              mountPath: /var/lib/postgresql/data   # ✅ VERY IMPORTANT
+              mountPath: /var/lib/postgresql/data
 
-          livenessProbe:
-            tcpSocket:
-              port: 5432
-            initialDelaySeconds: 30
-            periodSeconds: 10
+            - name: host-backup
+              mountPath: /tmp
 
-          readinessProbe:
-            tcpSocket:
-              port: 5432
-            initialDelaySeconds: 10
-            periodSeconds: 10
+          #################################
+          # 🔥 FIXED RESTORE LOGIC
+          #################################
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - sh
+                  - -c
+                  - |
+                    echo "===== WAITING FOR POSTGRES ====="
 
-          resources:
-            requests:
-              memory: "256Mi"
-              cpu: "250m"
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
+                    until pg_isready -h localhost -U $POSTGRES_USER; do
+                      echo "Waiting for DB..."
+                      sleep 3
+                    done
+
+                    echo "===== DB READY ====="
+
+                    if [ -f /tmp/backup_omf.sql ]; then
+                      echo "Backup file found"
+
+                      if [ -f /var/lib/postgresql/data/pgdata/.restore_done ]; then
+                        echo "Restore already done. Skipping."
+                        exit 0
+                      fi
+
+                      echo "===== STARTING RESTORE ====="
+
+                      PGPASSWORD=$POSTGRES_PASSWORD psql \
+                        -h localhost \
+                        -U $POSTGRES_USER \
+                        -d $POSTGRES_DB \
+                        -f /tmp/backup_omf.sql
+
+                      echo "===== RESTORE COMPLETED ====="
+
+                      touch /var/lib/postgresql/data/pgdata/.restore_done
+                    else
+                      echo "Backup file NOT found in /tmp"
+                    fi
 
       volumes:
         - name: postgres-storage
           persistentVolumeClaim:
-            claimName: pgdata-pvc   # ✅ binding PVC
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: postgres-service
-  namespace: default
-spec:
-  type: NodePort
-  selector:
-    app: df-db-omf
-  ports:
-    - port: 5401
-      targetPort: 5432
-      nodePort: 30541
+            claimName: pgdata-omfsit-pvc
+
+        - name: host-backup
+          hostPath:
+            path: /tmp
+            type: Directory
