@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: df-db-omf
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: df-db-omf
+  template:
+    metadata:
+      labels:
+        app: df-db-omf
+    spec:
+      containers:
+        - name: postgres
+          image: cache.artifactory.global.standardchartered.com/postgres:16
+
+          ports:
+            - containerPort: 5432
+
+          env:
+            - name: POSTGRES_DB
+              value: omfdevdb
+            - name: POSTGRES_USER
+              value: db_app_admin
+            - name: POSTGRES_PASSWORD
+              value: Test@12345
+
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+
+          #################################
+          # 🔥 AUTO RESTORE LOGIC
+          #################################
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - sh
+                  - -c
+                  - |
+                    echo "Waiting for PostgreSQL..."
+                    until pg_isready -U $POSTGRES_USER; do sleep 5; done
+
+                    echo "Checking if restore already done..."
+                    if [ -f /var/lib/postgresql/data/.restore_done ]; then
+                      echo "Restore already completed. Skipping."
+                      exit 0
+                    fi
+
+                    echo "Installing curl..."
+                    apt-get update && apt-get install -y curl
+
+                    #################################
+                    # OPTION 1: FROM GIT / URL
+                    #################################
+                    echo "Downloading backup from Git..."
+                    curl -o /tmp/backup.sql https://your-git-repo/backup.sql
+
+                    #################################
+                    # OPTION 2: FROM LOCAL TMP (uncomment if needed)
+                    #################################
+                    # cp /tmp/backup.sql /tmp/backup.sql
+
+                    #################################
+                    # RESTORE
+                    #################################
+                    echo "Restoring database..."
+                    PGPASSWORD=$POSTGRES_PASSWORD psql \
+                      -U $POSTGRES_USER \
+                      -d $POSTGRES_DB \
+                      -f /tmp/backup.sql
+
+                    #################################
+                    # MARK COMPLETED
+                    #################################
+                    touch /var/lib/postgresql/data/.restore_done
+
+                    echo "Restore completed successfully"
+
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: pgdata-pvc
