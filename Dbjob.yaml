@@ -13,10 +13,16 @@ spec:
         - name: restore
           image: postgres:16
 
+          env:
+            - name: PGPASSWORD
+              value: Test@12345
+
           command:
             - sh
             - -c
             - >
+              set -e;
+
               echo "===== WAITING FOR POSTGRES SERVICE =====";
 
               until pg_isready -h df-db-omf-sit-service -p 5401 -U db_app_admin; do
@@ -26,21 +32,35 @@ spec:
 
               echo "===== DB READY =====";
 
+              echo "===== CHECKING BACKUP FILE =====";
+
               if [ ! -f /tmp/backup_omf.sql ]; then
-                echo "ERROR: backup file not found";
+                echo "ERROR: backup file not found at /tmp/backup_omf.sql";
                 exit 1;
               fi;
 
-              echo "===== STARTING RESTORE =====";
+              ls -l /tmp/backup_omf.sql;
 
-              PGPASSWORD=Test@12345 psql \
+              echo "===== CREATING DATABASE IF NOT EXISTS =====";
+
+              psql -h df-db-omf-sit-service -p 5401 -U db_app_admin -d postgres \
+                -tc "SELECT 1 FROM pg_database WHERE datname='omfsitdb'" | grep -q 1 \
+                || psql -h df-db-omf-sit-service -p 5401 -U db_app_admin -d postgres \
+                -c "CREATE DATABASE omfsitdb";
+
+              echo "===== STARTING RESTORE USING pg_restore =====";
+
+              pg_restore \
                 -h df-db-omf-sit-service \
                 -p 5401 \
                 -U db_app_admin \
                 -d omfsitdb \
-                -f /tmp/backup_omf.sql;
+                --no-owner \
+                --no-privileges \
+                --verbose \
+                /tmp/backup_omf.sql;
 
-              echo "===== RESTORE COMPLETED =====";
+              echo "===== RESTORE COMPLETED SUCCESSFULLY =====";
 
           volumeMounts:
             - name: host-backup
