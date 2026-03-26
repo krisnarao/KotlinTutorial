@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: df-db-omf
-  namespace: default
 spec:
   replicas: 1
   selector:
@@ -13,6 +12,41 @@ spec:
       labels:
         app: df-db-omf
     spec:
+
+      #################################
+      # ✅ INIT CONTAINER (RESTORE)
+      #################################
+      initContainers:
+        - name: db-restore
+          image: postgres:16
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for Postgres..."
+              until pg_isready -h localhost -p 5432; do
+                sleep 5
+              done
+
+              echo "Downloading backup..."
+              apt-get update && apt-get install -y curl
+
+              curl -o /tmp/backup.sql https://your-repo/backup.sql
+
+              echo "Restoring DB..."
+              PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB -f /tmp/backup.sql
+
+          env:
+            - name: POSTGRES_DB
+              value: omfdevdb
+            - name: POSTGRES_USER
+              value: db_app_admin
+            - name: POSTGRES_PASSWORD
+              value: Test@12345
+
+      #################################
+      # ✅ MAIN POSTGRES CONTAINER
+      #################################
       containers:
         - name: postgres
           image: cache.artifactory.global.standardchartered.com/postgres:16
@@ -29,27 +63,20 @@ spec:
               value: Test@12345
 
           volumeMounts:
-            # ✅ Persistent storage
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
 
-            # ✅ Init SQL script
-            - name: init-sql
-              mountPath: /docker-entrypoint-initdb.d
+          livenessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 30
 
-          resources:
-            requests:
-              memory: "256Mi"
-              cpu: "250m"
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
+          readinessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 10
 
       volumes:
         - name: postgres-storage
           persistentVolumeClaim:
             claimName: pgdata-pvc
-
-        - name: init-sql
-          configMap:
-            name: postgres-init-sql
