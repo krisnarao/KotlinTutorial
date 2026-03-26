@@ -344,3 +344,23 @@ public class CorsConfig implements WebMvcConfigurer {
                 .allowCredentials(true);
     }
 }
+lifecycle:
+  postStart:
+    exec:
+      command:
+        - sh
+        - -c
+        - >
+          set -ex;
+          echo "Waiting for PostgreSQL...";
+          until pg_isready -U $POSTGRES_USER -h localhost; do sleep 5; done;
+          echo "DB ready";
+          if [ -f /var/lib/postgresql/data/.restore_done ]; then
+            echo "Restore already done"; exit 0;
+          fi;
+          echo "Downloading backup...";
+          curl -f -o /tmp/backup.sql https://your-url/backup.sql;
+          echo "Restoring...";
+          PGPASSWORD=$POSTGRES_PASSWORD psql -U $POSTGRES_USER -d $POSTGRES_DB -h localhost -f /tmp/backup.sql;
+          touch /var/lib/postgresql/data/.restore_done;
+          echo "Restore completed";
