@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: postgres-restore-job
+  generateName: postgres-restore-job-
   namespace: default
 spec:
   backoffLimit: 3
@@ -9,6 +9,38 @@ spec:
     spec:
       restartPolicy: Never
 
+      volumes:
+        - name: backup-volume
+          emptyDir: {}
+
+      #################################################
+      # 🔽 INIT CONTAINER - DOWNLOAD FROM ARTIFACTORY
+      #################################################
+      initContainers:
+        - name: download-backup
+          image: curlimages/curl:latest
+          command:
+            - sh
+            - -c
+            - >
+              set -e;
+
+              echo "===== DOWNLOADING BACKUP =====";
+
+              curl -u your_user:your_password \
+                -o /backup/backup.sql \
+                https://your-artifactory-url/path/backup_omf.sql;
+
+              echo "===== DOWNLOAD DONE =====";
+              ls -l /backup;
+
+          volumeMounts:
+            - name: backup-volume
+              mountPath: /backup
+
+      #################################################
+      # 🔽 MAIN CONTAINER - RESTORE
+      #################################################
       containers:
         - name: restore
           image: postgres:16
@@ -23,7 +55,7 @@ spec:
             - >
               set -e;
 
-              echo "===== WAITING FOR POSTGRES SERVICE =====";
+              echo "===== WAITING FOR POSTGRES =====";
 
               until pg_isready -h df-db-omf-sit-service -p 5401 -U db_app_admin; do
                 echo "Waiting for DB...";
@@ -32,23 +64,30 @@ spec:
 
               echo "===== DB READY =====";
 
-              echo "===== CHECKING BACKUP FILE =====";
+              echo "===== CHECK BACKUP FILE =====";
+              ls -l /backup;
 
-              if [ ! -f /tmp/backup_omf.sql ]; then
-                echo "ERROR: backup file not found at /tmp/backup_omf.sql";
+              if [ ! -f /backup/backup.sql ]; then
+                echo "ERROR: Backup file not found!";
                 exit 1;
               fi;
 
-              ls -l /tmp/backup_omf.sql;
-
-              echo "===== CREATING DATABASE IF NOT EXISTS =====";
+              echo "===== ENSURE DATABASE EXISTS =====";
 
               psql -h df-db-omf-sit-service -p 5401 -U db_app_admin -d postgres \
                 -tc "SELECT 1 FROM pg_database WHERE datname='omfsitdb'" | grep -q 1 \
                 || psql -h df-db-omf-sit-service -p 5401 -U db_app_admin -d postgres \
                 -c "CREATE DATABASE omfsitdb";
 
-              echo "===== STARTING RESTORE USING pg_restore =====";
+              echo "===== CHECK IF RESTORE NEEDED =====";
+
+              if psql -h df-db-omf-sit-service -p 5401 -U db_app_admin -d omfsitdb \
+                -tAc "SELECT 1 FROM information_schema.tables WHERE table_name='accounts' LIMIT 1" | grep -q 1; then
+                echo "Database already has data. Skipping restore.";
+                exit 0;
+              fi;
+
+              echo "===== STARTING RESTORE =====";
 
               pg_restore \
                 -h df-db-omf-sit-service \
@@ -58,16 +97,18 @@ spec:
                 --no-owner \
                 --no-privileges \
                 --verbose \
-                /tmp/backup_omf.sql;
+                /backup/backup.sql;
 
-              echo "===== RESTORE COMPLETED SUCCESSFULLY =====";
+              echo "===== RESTORE COMPLETED =====";
 
           volumeMounts:
-            - name: host-backup
-              mountPath: /tmp
+            - name: backup-volume
+              mountPath: /backup
 
-      volumes:
-        - name: host-backup
-          hostPath:
-            path: /tmp
-            type: Directory
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
