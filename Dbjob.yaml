@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-restore-job
+  namespace: default
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+
+      containers:
+        - name: restore
+          image: postgres:16
+
+          command:
+            - sh
+            - -c
+            - >
+              echo "===== WAITING FOR POSTGRES SERVICE =====";
+
+              until pg_isready -h df-db-omf-sit-service -p 5401 -U db_app_admin; do
+                echo "Waiting for DB...";
+                sleep 5;
+              done;
+
+              echo "===== DB READY =====";
+
+              if [ ! -f /tmp/backup_omf.sql ]; then
+                echo "ERROR: backup file not found";
+                exit 1;
+              fi;
+
+              echo "===== STARTING RESTORE =====";
+
+              PGPASSWORD=Test@12345 psql \
+                -h df-db-omf-sit-service \
+                -p 5401 \
+                -U db_app_admin \
+                -d omfsitdb \
+                -f /tmp/backup_omf.sql;
+
+              echo "===== RESTORE COMPLETED =====";
+
+          volumeMounts:
+            - name: host-backup
+              mountPath: /tmp
+
+      volumes:
+        - name: host-backup
+          hostPath:
+            path: /tmp
+            type: Directory
