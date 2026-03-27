@@ -364,3 +364,12 @@ lifecycle:
           PGPASSWORD=$POSTGRES_PASSWORD psql -U $POSTGRES_USER -d $POSTGRES_DB -h localhost -f /tmp/backup.sql;
           touch /var/lib/postgresql/data/.restore_done;
           echo "Restore completed";
+
+
+{
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test"
+  }
+}
