@@ -18,9 +18,10 @@ spec:
         image: cache.artifactory.global.standardchartered.com/postgres:16
         ports:
         - containerPort: 5432
+
         env:
         - name: POSTGRES_DB
-          value: psqlmesadb   # your DB name
+          value: psqlmesadb
         - name: POSTGRES_USER
           value: apdbinst
         - name: POSTGRES_PASSWORD
@@ -29,18 +30,22 @@ spec:
           value: /var/lib/postgresql/data/pgdata
 
         volumeMounts:
+        # 🔹 Persistent DB storage
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
 
-        # 🔥 THIS IS THE KEY PART
+        # 🔹 SQL init scripts location (AUTO EXECUTION)
         - name: init-sql
           mountPath: /docker-entrypoint-initdb.d
 
       volumes:
+      # 🔹 Your existing PVC (UPDATE THIS NAME)
       - name: postgres-storage
         persistentVolumeClaim:
-          claimName: postgres-pvc   # <-- update this
+          claimName: postgres-pvc   # 👈 replace with your actual PVC name
 
+      # 🔹 Host path where SQL file exists
       - name: init-sql
-        configMap:
-          name: postgres-init-sql
+        hostPath:
+          path: /data/postgres-init   # 👈 path on node
+          type: DirectoryOrCreate
