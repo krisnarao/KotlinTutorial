@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: df-db-ibankmesa
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: df-db-ibankmesa
+  template:
+    metadata:
+      labels:
+        app: df-db-ibankmesa
+    spec:
+      containers:
+      - name: postgres
+        image: cache.artifactory.global.standardchartered.com/postgres:16
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: psqlmesadb   # your DB name
+        - name: POSTGRES_USER
+          value: apdbinst
+        - name: POSTGRES_PASSWORD
+          value: Test@12345
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+
+        # 🔥 THIS IS THE KEY PART
+        - name: init-sql
+          mountPath: /docker-entrypoint-initdb.d
+
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc   # <-- update this
+
+      - name: init-sql
+        configMap:
+          name: postgres-init-sql
