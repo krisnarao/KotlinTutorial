@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: df-db-ibankmesa
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: df-db-ibankmesa
+  template:
+    metadata:
+      labels:
+        app: df-db-ibankmesa
+    spec:
+      securityContext:
+        fsGroup: 999
+
+      containers:
+      - name: postgres
+        image: cache.artifactory.global.standardchartered.com/postgres:16
+
+        ports:
+        - containerPort: 5432
+
+        env:
+        - name: POSTGRES_DB
+          value: psqlmesadb
+        - name: POSTGRES_USER
+          value: apdbinst
+        - name: POSTGRES_PASSWORD
+          value: Test@12345
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+
+        volumeMounts:
+        # DB data
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+
+        # SQL file location
+        - name: init-sql
+          mountPath: /sql
+
+        # 🔥 POST START HOOK
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  echo "Waiting for PostgreSQL to be ready..."
+
+                  # Wait until DB is ready
+                  until pg_isready -U apdbinst -d psqlmesadb; do
+                    sleep 2
+                  done
+
+                  echo "Checking if DB is already initialized..."
+
+                  # Check if table exists (change to your real table)
+                  TABLE_EXISTS=$(psql -U apdbinst -d psqlmesadb -tAc \
+                  "SELECT 1 FROM information_schema.tables WHERE table_name='your_table_name' LIMIT 1;")
+
+                  if [ "$TABLE_EXISTS" != "1" ]; then
+                    echo "Running SQL initialization script..."
+                    psql -U apdbinst -d psqlmesadb -f /sql/wmfomf_v1.sql
+                  else
+                    echo "DB already initialized. Skipping."
+                  fi
+
+      volumes:
+      # PVC (UPDATE NAME if needed)
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+
+      # SQL file from node
+      - name: init-sql
+        hostPath:
+          path: /data/postgres-init
+          type: DirectoryOrCreate
