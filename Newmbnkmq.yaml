@@ -17,6 +17,7 @@ spec:
         app: mbnk-dev-mq
 
     spec:
+
       containers:
 
       - name: ibm-mq
@@ -42,7 +43,7 @@ spec:
 
         volumeMounts:
 
-        # Persistent MQ data storage
+        # Persistent MQ storage
         - name: mq-data
           mountPath: /mnt/mqm
 
@@ -50,36 +51,32 @@ spec:
         - name: mq-config
           mountPath: /etc/mqm-config
 
-        command:
-        - /bin/bash
-        - -c
-        - |
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/bash
+              - -c
+              - |
+                  echo "Waiting for MQ startup..."
 
-          echo "Starting IBM MQ..."
+                  sleep 40
 
-          /usr/local/bin/runmqdevserver &
+                  if [ ! -f /mnt/mqm/.mq-config-restored ]; then
 
-          echo "Waiting for MQ startup..."
+                     echo "Applying MQSC backup..."
 
-          sleep 25
+                     runmqsc HKIBK1S1 < /etc/mqm-config/aeibk1s1-mq-config.mqsc
 
-          if [ ! -f /mnt/mqm/.mq-config-restored ]; then
+                     touch /mnt/mqm/.mq-config-restored
 
-             echo "Applying MQ backup config..."
+                     echo "MQSC restore completed"
 
-             runmqsc HKIBK1S1 < /etc/mqm-config/aeibk1s1-mq-config.mqsc
+                  else
 
-             touch /mnt/mqm/.mq-config-restored
+                     echo "MQSC already restored earlier"
 
-             echo "MQSC restore completed"
-
-          else
-
-             echo "MQSC already restored earlier"
-
-          fi
-
-          wait
+                  fi
 
       volumes:
 
@@ -88,7 +85,7 @@ spec:
         persistentVolumeClaim:
           claimName: mq-pvc
 
-      # ConfigMap containing MQSC backup
+      # ConfigMap with MQSC backup
       - name: mq-config
         configMap:
           name: mq-config
