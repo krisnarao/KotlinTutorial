@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mbnk-dev-mq
+  namespace: ibank-mq
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: mbnk-dev-mq
+
+  template:
+    metadata:
+      labels:
+        app: mbnk-dev-mq
+
+    spec:
+      containers:
+
+      - name: ibm-mq
+
+        image: icr.io/ibm-messaging/mq:latest
+        imagePullPolicy: IfNotPresent
+
+        env:
+
+        - name: LICENSE
+          value: "accept"
+
+        - name: MQ_QMGR_NAME
+          value: "HKIBK1S1"
+
+        ports:
+
+        - containerPort: 1414
+          name: mq
+
+        - containerPort: 9443
+          name: web
+
+        volumeMounts:
+
+        # Persistent MQ data storage
+        - name: mq-data
+          mountPath: /mnt/mqm
+
+        # MQSC backup config
+        - name: mq-config
+          mountPath: /etc/mqm-config
+
+        command:
+        - /bin/bash
+        - -c
+        - |
+
+          echo "Starting IBM MQ..."
+
+          /usr/local/bin/runmqdevserver &
+
+          echo "Waiting for MQ startup..."
+
+          sleep 25
+
+          if [ ! -f /mnt/mqm/.mq-config-restored ]; then
+
+             echo "Applying MQ backup config..."
+
+             runmqsc HKIBK1S1 < /etc/mqm-config/aeibk1s1-mq-config.mqsc
+
+             touch /mnt/mqm/.mq-config-restored
+
+             echo "MQSC restore completed"
+
+          else
+
+             echo "MQSC already restored earlier"
+
+          fi
+
+          wait
+
+      volumes:
+
+      # Persistent Volume Claim
+      - name: mq-data
+        persistentVolumeClaim:
+          claimName: mq-pvc
+
+      # ConfigMap containing MQSC backup
+      - name: mq-config
+        configMap:
+          name: mq-config
