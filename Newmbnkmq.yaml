@@ -1,3 +1,43 @@
+#!/bin/bash
+
+echo "Waiting for MQ Queue Manager..."
+
+for i in {1..60}
+do
+    dspmq | grep "QMNAME(HKIBK1S1).*Running"
+
+    if [ $? -eq 0 ]; then
+        echo "Queue Manager is running"
+        break
+    fi
+
+    echo "Waiting..."
+    sleep 5
+done
+
+if [ ! -f /mnt/mqm/.mq-config-restored ]; then
+
+   echo "Applying MQSC restore..."
+
+   runmqsc HKIBK1S1 < /etc/mqm-config/aeibk1s1-mq-config.mqsc \
+   > /mnt/mqm/restore.log 2>&1
+
+   touch /mnt/mqm/.mq-config-restored
+
+   echo "MQSC restore completed"
+
+else
+
+   echo "MQSC already restored"
+
+fi
+
+tail -f /mnt/mqm/restore.log
+
+kubectl create configmap mq-restore-script \
+--from-file=restore-mq.sh \
+-n ibank-mq
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -43,49 +83,36 @@ spec:
 
         volumeMounts:
 
-        # Persistent MQ storage
         - name: mq-data
           mountPath: /mnt/mqm
 
-        # MQSC backup config
         - name: mq-config
           mountPath: /etc/mqm-config
 
-        lifecycle:
-          postStart:
-            exec:
-              command:
-              - /bin/bash
-              - -c
-              - |
-                  echo "Waiting for MQ startup..."
+        - name: mq-restore-script
+          mountPath: /usr/local/bin/restore-mq.sh
+          subPath: restore-mq.sh
 
-                  sleep 40
+        command:
+        - /bin/bash
+        - -c
+        - |
+            chmod +x /usr/local/bin/restore-mq.sh
 
-                  if [ ! -f /mnt/mqm/.mq-config-restored ]; then
+            /usr/local/bin/runmqserver &
 
-                     echo "Applying MQSC backup..."
-
-                     runmqsc HKIBK1S1 < /etc/mqm-config/aeibk1s1-mq-config.mqsc
-
-                     touch /mnt/mqm/.mq-config-restored
-
-                     echo "MQSC restore completed"
-
-                  else
-
-                     echo "MQSC already restored earlier"
-
-                  fi
+            /usr/local/bin/restore-mq.sh
 
       volumes:
 
-      # Persistent Volume Claim
       - name: mq-data
         persistentVolumeClaim:
           claimName: mq-pvc
 
-      # ConfigMap with MQSC backup
       - name: mq-config
         configMap:
           name: mq-config
+
+      - name: mq-restore-script
+        configMap:
+          name: mq-restore-script
