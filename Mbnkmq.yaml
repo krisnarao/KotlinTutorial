@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ibank-dev-mq
+  namespace: ibank-mq
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: ibank-dev-mq
+
+  template:
+    metadata:
+      labels:
+        app: ibank-dev-mq
+
+    spec:
+      containers:
+      - name: ibm-mq
+
+        image: icr.io/ibm-messaging/mq:latest
+        imagePullPolicy: IfNotPresent
+
+        env:
+        - name: LICENSE
+          value: "accept"
+
+        - name: MQ_QMGR_NAME
+          value: "AEIBK1S1"
+
+        ports:
+        - containerPort: 1414
+          name: mq
+
+        - containerPort: 9443
+          name: web
+
+        volumeMounts:
+
+        # Persistent MQ data
+        - name: mq-data
+          mountPath: /mnt/mqm
+
+        # MQSC backup config
+        - name: mq-config
+          mountPath: /etc/mqm-config
+
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo "Starting IBM MQ..."
+
+          if [ ! -d /mnt/mqm/qmgrs/AEIBK1S1 ]; then
+
+            echo "Creating Queue Manager..."
+
+            crtmqm AEIBK1S1
+
+            strmqm AEIBK1S1
+
+            echo "Applying MQSC backup config..."
+
+            runmqsc AEIBK1S1 < /etc/mqm-config/aeibk1s1-mq-config.mqsc
+
+            echo "MQ configuration restored successfully"
+
+          else
+
+            echo "Existing Queue Manager found"
+
+            strmqm AEIBK1S1
+
+          fi
+
+          echo "IBM MQ started successfully"
+
+          tail -f /dev/null
+
+      volumes:
+
+      # PVC mounted to retain MQ data after restart
+      - name: mq-data
+        persistentVolumeClaim:
+          claimName: mq-pvc
+
+      # MQSC backup configmap
+      - name: mq-config
+        configMap:
+          name: mq-config
