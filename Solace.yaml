@@ -6,6 +6,23 @@ metadata:
 
 ---
 apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: solace-pv
+spec:
+  capacity:
+    storage: 20Gi
+
+  accessModes:
+    - ReadWriteOnce
+
+  persistentVolumeReclaimPolicy: Retain
+
+  hostPath:
+    path: /data/solace
+
+---
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: solace-pvc
@@ -13,9 +30,12 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+
   resources:
     requests:
       storage: 20Gi
+
+  volumeName: solace-pv
 
 ---
 apiVersion: apps/v1
@@ -23,23 +43,26 @@ kind: StatefulSet
 metadata:
   name: solace
   namespace: solace
+
 spec:
   serviceName: solace
   replicas: 1
+
   selector:
     matchLabels:
       app: solace
+
   template:
     metadata:
       labels:
         app: solace
-    spec:
-      securityContext:
-        fsGroup: 0
 
+    spec:
       containers:
       - name: solace
+
         image: solace/solace-pubsub-standard:latest
+
         imagePullPolicy: IfNotPresent
 
         securityContext:
@@ -52,12 +75,6 @@ spec:
 
         - name: username_admin_password
           value: "admin"
-
-        - name: system_scaling_maxconnectioncount
-          value: "100"
-
-        - name: system_scaling_maxqueuemessagecount
-          value: "2000"
 
         ports:
         - containerPort: 8080
@@ -114,6 +131,7 @@ kind: Service
 metadata:
   name: solace
   namespace: solace
+
 spec:
   selector:
     app: solace
