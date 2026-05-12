@@ -1,0 +1,158 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: solace
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: solace-pvc
+  namespace: solace
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: solace
+  namespace: solace
+spec:
+  serviceName: solace
+  replicas: 1
+  selector:
+    matchLabels:
+      app: solace
+  template:
+    metadata:
+      labels:
+        app: solace
+    spec:
+      securityContext:
+        fsGroup: 0
+
+      containers:
+      - name: solace
+        image: solace/solace-pubsub-standard:latest
+        imagePullPolicy: IfNotPresent
+
+        securityContext:
+          privileged: true
+          runAsUser: 0
+
+        env:
+        - name: username_admin_globalaccesslevel
+          value: "admin"
+
+        - name: username_admin_password
+          value: "admin"
+
+        - name: system_scaling_maxconnectioncount
+          value: "100"
+
+        - name: system_scaling_maxqueuemessagecount
+          value: "2000"
+
+        ports:
+        - containerPort: 8080
+          name: web
+
+        - containerPort: 55555
+          name: smf
+
+        - containerPort: 8008
+          name: rest
+
+        - containerPort: 1883
+          name: mqtt
+
+        - containerPort: 5672
+          name: amqp
+
+        - containerPort: 9000
+          name: mgmt
+
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+
+        volumeMounts:
+        - name: solace-storage
+          mountPath: /var/lib/solace
+
+        livenessProbe:
+          tcpSocket:
+            port: 55555
+          initialDelaySeconds: 120
+          periodSeconds: 30
+
+        readinessProbe:
+          tcpSocket:
+            port: 55555
+          initialDelaySeconds: 90
+          periodSeconds: 20
+
+      volumes:
+      - name: solace-storage
+        persistentVolumeClaim:
+          claimName: solace-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: solace
+  namespace: solace
+spec:
+  selector:
+    app: solace
+
+  type: NodePort
+
+  ports:
+  - name: web
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
+    nodePort: 30080
+
+  - name: smf
+    protocol: TCP
+    port: 55555
+    targetPort: 55555
+    nodePort: 30555
+
+  - name: rest
+    protocol: TCP
+    port: 8008
+    targetPort: 8008
+    nodePort: 30008
+
+  - name: mqtt
+    protocol: TCP
+    port: 1883
+    targetPort: 1883
+    nodePort: 31883
+
+  - name: amqp
+    protocol: TCP
+    port: 5672
+    targetPort: 5672
+    nodePort: 30672
+
+  - name: mgmt
+    protocol: TCP
+    port: 9000
+    targetPort: 9000
+    nodePort: 30900
