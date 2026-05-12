@@ -27,6 +27,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: solace-pvc
   namespace: solace
+
 spec:
   accessModes:
     - ReadWriteOnce
@@ -58,6 +59,9 @@ spec:
         app: solace
 
     spec:
+      securityContext:
+        fsGroup: 0
+
       containers:
       - name: solace
 
@@ -75,6 +79,9 @@ spec:
 
         - name: username_admin_password
           value: "admin"
+
+        - name: NODE_TYPE
+          value: "message_routing"
 
         ports:
         - containerPort: 8080
@@ -97,33 +104,41 @@ spec:
 
         resources:
           requests:
-            memory: "2Gi"
+            memory: "4Gi"
             cpu: "1"
 
           limits:
-            memory: "4Gi"
+            memory: "6Gi"
             cpu: "2"
 
         volumeMounts:
         - name: solace-storage
           mountPath: /var/lib/solace
 
+        - name: dshm
+          mountPath: /dev/shm
+
         livenessProbe:
           tcpSocket:
             port: 55555
-          initialDelaySeconds: 120
+          initialDelaySeconds: 180
           periodSeconds: 30
 
         readinessProbe:
           tcpSocket:
             port: 55555
-          initialDelaySeconds: 90
+          initialDelaySeconds: 150
           periodSeconds: 20
 
       volumes:
       - name: solace-storage
         persistentVolumeClaim:
           claimName: solace-pvc
+
+      - name: dshm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
 
 ---
 apiVersion: v1
