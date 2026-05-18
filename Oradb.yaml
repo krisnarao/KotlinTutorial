@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oracle-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oracle-db
+  template:
+    metadata:
+      labels:
+        app: oracle-db
+    spec:
+
+      initContainers:
+      - name: copy-backup
+        image: busybox
+        command:
+          - sh
+          - -c
+          - |
+            cp /backup/backup.sql /restore/backup.sql
+
+        volumeMounts:
+        - name: backup-volume
+          mountPath: /backup
+
+        - name: restore-volume
+          mountPath: /restore
+
+      containers:
+      - name: oracle-db
+        image: gvenzl/oracle-free:latest
+
+        ports:
+        - containerPort: 1521
+
+        env:
+        - name: ORACLE_PASSWORD
+          value: "Oracle123"
+
+        volumeMounts:
+
+        # Oracle persistent DB
+        - name: oracle-storage
+          mountPath: /opt/oracle/oradata
+
+        # Auto startup restore scripts
+        - name: restore-volume
+          mountPath: /container-entrypoint-initdb.d
+
+      volumes:
+
+      - name: oracle-storage
+        persistentVolumeClaim:
+          claimName: oracle-pvc
+
+      - name: backup-volume
+        persistentVolumeClaim:
+          claimName: oracle-backup-pvc
+
+      - name: restore-volume
+        emptyDir: {}
