@@ -1,3 +1,27 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: oracle-backup-pv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /oracle-backup
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: oracle-backup-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
