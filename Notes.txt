@@ -1,185 +1,109 @@
+package com.vaultguardian.ai.dto;
+
+import lombok.*;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class DashboardResponse {
+
+    private long totalServers;
+
+    private long totalSecrets;
+
+    private long activeSecrets;
+
+    private long inactiveSecrets;
+
+    private long criticalServers;
+
+    private long expiringSecrets;
+
+}
+
+..
+package com.vaultguardian.ai.service;
+
+import com.vaultguardian.ai.dto.DashboardResponse;
+
+public interface DashboardService {
+
+    DashboardResponse getDashboard();
+
+}
+
+...
 package com.vaultguardian.ai.service.impl;
 
-import com.vaultguardian.ai.dto.SecretRequest;
-import com.vaultguardian.ai.dto.SecretResponse;
-import com.vaultguardian.ai.entity.Secret;
-import com.vaultguardian.ai.entity.Server;
+import com.vaultguardian.ai.dto.DashboardResponse;
+import com.vaultguardian.ai.enums.Criticality;
 import com.vaultguardian.ai.repository.SecretRepository;
 import com.vaultguardian.ai.repository.ServerRepository;
-import com.vaultguardian.ai.service.SecretService;
+import com.vaultguardian.ai.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class SecretServiceImpl implements SecretService {
-
-    private final SecretRepository secretRepository;
+public class DashboardServiceImpl implements DashboardService {
 
     private final ServerRepository serverRepository;
 
-    @Override
-    public SecretResponse create(SecretRequest request) {
-
-        if (secretRepository.existsBySecretName(request.getSecretName())) {
-            throw new RuntimeException("Secret already exists");
-        }
-
-        Server server = serverRepository.findById(request.getServerId())
-                .orElseThrow(() -> new RuntimeException("Server not found"));
-
-        Secret secret = Secret.builder()
-                .secretName(request.getSecretName())
-                .vaultReference(request.getVaultReference())
-                .secretType(request.getSecretType())
-                .rotationDays(request.getRotationDays())
-                .lastRotated(LocalDate.now())
-                .expiryDate(LocalDate.now().plusDays(request.getRotationDays()))
-                .active(true)
-                .server(server)
-                .build();
-
-        return map(secretRepository.save(secret));
-    }
+    private final SecretRepository secretRepository;
 
     @Override
-    public List<SecretResponse> findAll() {
+    public DashboardResponse getDashboard() {
 
-        return secretRepository.findAll()
-                .stream()
-                .map(this::map)
-                .collect(Collectors.toList());
+        return DashboardResponse.builder()
 
-    }
+                .totalServers(serverRepository.count())
 
-    @Override
-    public SecretResponse findById(Long id) {
+                .totalSecrets(secretRepository.count())
 
-        Secret secret = secretRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Secret not found"));
+                .activeSecrets(secretRepository.countByActive(true))
 
-        return map(secret);
+                .inactiveSecrets(secretRepository.countByActive(false))
 
-    }
+                .criticalServers(
+                        serverRepository.countByCriticality(
+                                Criticality.CRITICAL))
 
-    @Override
-    public SecretResponse update(Long id, SecretRequest request) {
-
-        Secret secret = secretRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Secret not found"));
-
-        Server server = serverRepository.findById(request.getServerId())
-                .orElseThrow(() -> new RuntimeException("Server not found"));
-
-        secret.setSecretName(request.getSecretName());
-        secret.setVaultReference(request.getVaultReference());
-        secret.setSecretType(request.getSecretType());
-        secret.setRotationDays(request.getRotationDays());
-        secret.setExpiryDate(LocalDate.now().plusDays(request.getRotationDays()));
-        secret.setServer(server);
-
-        return map(secretRepository.save(secret));
-
-    }
-
-    @Override
-    public void delete(Long id) {
-
-        secretRepository.deleteById(id);
-
-    }
-
-    private SecretResponse map(Secret secret) {
-
-        return SecretResponse.builder()
-
-                .id(secret.getId())
-
-                .secretName(secret.getSecretName())
-
-                .vaultReference(secret.getVaultReference())
-
-                .secretType(secret.getSecretType())
-
-                .rotationDays(secret.getRotationDays())
-
-                .lastRotated(secret.getLastRotated())
-
-                .expiryDate(secret.getExpiryDate())
-
-                .active(secret.getActive())
-
-                .serverName(secret.getServer().getHostname())
+                .expiringSecrets(
+                        secretRepository.countByExpiryDateBefore(
+                                LocalDate.now().plusDays(30)))
 
                 .build();
 
     }
 
 }
-
-
 ...
+
+
+.....
+
 package com.vaultguardian.ai.controller;
 
-import com.vaultguardian.ai.dto.SecretRequest;
-import com.vaultguardian.ai.dto.SecretResponse;
-import com.vaultguardian.ai.service.SecretService;
-import jakarta.validation.Valid;
+import com.vaultguardian.ai.dto.DashboardResponse;
+import com.vaultguardian.ai.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
-@RequestMapping("/api/secrets")
+@RequestMapping("/api/dashboard")
 @RequiredArgsConstructor
-public class SecretController {
+public class DashboardController {
 
-    private final SecretService service;
-
-    @PostMapping
-    public SecretResponse create(
-            @Valid
-            @RequestBody
-            SecretRequest request) {
-
-        return service.create(request);
-
-    }
+    private final DashboardService dashboardService;
 
     @GetMapping
-    public List<SecretResponse> findAll() {
+    public DashboardResponse dashboard() {
 
-        return service.findAll();
-
-    }
-
-    @GetMapping("/{id}")
-    public SecretResponse findById(
-            @PathVariable Long id) {
-
-        return service.findById(id);
-
-    }
-
-    @PutMapping("/{id}")
-    public SecretResponse update(
-            @PathVariable Long id,
-            @RequestBody SecretRequest request) {
-
-        return service.update(id, request);
-
-    }
-
-    @DeleteMapping("/{id}")
-    public void delete(
-            @PathVariable Long id) {
-
-        service.delete(id);
+        return dashboardService.getDashboard();
 
     }
 
