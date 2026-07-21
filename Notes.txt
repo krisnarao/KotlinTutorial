@@ -1,94 +1,262 @@
-@Override
-public List<ServerResponse> getRecentServers() {
+package com.vaultguardian.ai.config;
 
-    return serverRepository
-            .findTop5ByOrderByCreatedAtDesc()
-            .stream()
-            .map(server -> ServerResponse.builder()
-                    .id(server.getId())
-                    .hostname(server.getHostname())
-                    .application(server.getApplication())
-                    .environment(server.getEnvironment())
-                    .status(server.getStatus())
-                    .criticality(server.getCriticality())
-                    .owner(server.getOwner())
-                    .ipAddress(server.getIpAddress())
-                    .build())
-            .toList();
-
-}
-@Override
-public List<SecretResponse> getExpiringSecrets() {
-
-    return secretRepository
-            .findByExpiryDateBeforeOrderByExpiryDateAsc(
-                    LocalDate.now().plusDays(30))
-            .stream()
-            .map(secret -> SecretResponse.builder()
-                    .id(secret.getId())
-                    .secretName(secret.getSecretName())
-                    .vaultReference(secret.getVaultReference())
-                    .secretType(secret.getSecretType())
-                    .rotationDays(secret.getRotationDays())
-                    .lastRotated(secret.getLastRotated())
-                    .expiryDate(secret.getExpiryDate())
-                    .active(secret.getActive())
-                    .serverName(secret.getServer().getHostname())
-                    .build())
-            .toList();
-
-}
-
-
-
-....
-@GetMapping("/recent-servers")
-public List<ServerResponse> recentServers() {
-
-    return dashboardService.getRecentServers();
-
-}
-
-...
-@GetMapping("/expiring-secrets")
-public List<SecretResponse> expiringSecrets() {
-
-    return dashboardService.getExpiringSecrets();
-
-}
-
-package com.vaultguardian.ai.controller;
-
-import com.vaultguardian.ai.dto.DashboardResponse;
-import com.vaultguardian.ai.service.DashboardService;
+import com.vaultguardian.ai.entity.*;
+import com.vaultguardian.ai.enums.*;
+import com.vaultguardian.ai.repository.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
 
-@RestController
-@RequestMapping("/api/dashboard")
+import java.time.LocalDate;
+import java.util.List;
+
+@Component
 @RequiredArgsConstructor
-public class DashboardController {
+public class DataInitializer implements CommandLineRunner {
 
-    private final DashboardService dashboardService;
+    private final RoleRepository roleRepository;
+    private final UserRepository userRepository;
+    private final ServerRepository serverRepository;
+    private final SecretRepository secretRepository;
 
-    @GetMapping
-    public DashboardResponse dashboard() {
+    @Override
+    public void run(String... args) {
 
-        return dashboardService.getDashboard();
+        if(serverRepository.count() > 0){
+            return;
+        }
+
+        // Seed data here
 
     }
 
 }
-@GetMapping("/recent-servers")
-public List<ServerResponse> recentServers() {
 
-    return dashboardService.getRecentServers();
 
-}
-@GetMapping("/expiring-secrets")
-public List<SecretResponse> expiringSecrets() {
+...
+Role admin = roleRepository.save(
+        Role.builder()
+                .roleName(UserRole.ADMIN)
+                .description("Administrator")
+                .build());
 
-    return dashboardService.getExpiringSecrets();
+Role approver = roleRepository.save(
+        Role.builder()
+                .roleName(UserRole.APPROVER)
+                .description("Approver")
+                .build());
 
+Role operator = roleRepository.save(
+        Role.builder()
+                .roleName(UserRole.OPERATOR)
+                .description("Operator")
+                .build());
+
+Role auditor = roleRepository.save(
+        Role.builder()
+                .roleName(UserRole.AUDITOR)
+                .description("Auditor")
+                .build());
+
+....
+User adminUser = User.builder()
+        .username("admin")
+        .password("$2a$10$ReplaceWithBCryptPassword")
+        .email("admin@vaultguardian.ai")
+        .enabled(true)
+        .role(admin)
+        .build();
+
+userRepository.save(adminUser);
+
+...
+package com.vaultguardian.ai.config;
+
+import com.vaultguardian.ai.entity.Role;
+import com.vaultguardian.ai.entity.Secret;
+import com.vaultguardian.ai.entity.Server;
+import com.vaultguardian.ai.entity.User;
+import com.vaultguardian.ai.enums.Criticality;
+import com.vaultguardian.ai.enums.Environment;
+import com.vaultguardian.ai.enums.SecretType;
+import com.vaultguardian.ai.enums.ServerStatus;
+import com.vaultguardian.ai.enums.UserRole;
+import com.vaultguardian.ai.repository.RoleRepository;
+import com.vaultguardian.ai.repository.SecretRepository;
+import com.vaultguardian.ai.repository.ServerRepository;
+import com.vaultguardian.ai.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@Component
+@RequiredArgsConstructor
+public class DataInitializer implements CommandLineRunner {
+
+    private final RoleRepository roleRepository;
+    private final UserRepository userRepository;
+    private final ServerRepository serverRepository;
+    private final SecretRepository secretRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    @Override
+    public void run(String... args) {
+
+        // Prevent duplicate data
+        if (serverRepository.count() > 0) {
+            return;
+        }
+
+        /*
+         * ==========================
+         * Seed Roles
+         * ==========================
+         */
+        Role adminRole = roleRepository.save(
+                Role.builder()
+                        .roleName(UserRole.ADMIN)
+                        .description("System Administrator")
+                        .build());
+
+        Role approverRole = roleRepository.save(
+                Role.builder()
+                        .roleName(UserRole.APPROVER)
+                        .description("Breakglass Approver")
+                        .build());
+
+        Role operatorRole = roleRepository.save(
+                Role.builder()
+                        .roleName(UserRole.OPERATOR)
+                        .description("Operations Engineer")
+                        .build());
+
+        Role auditorRole = roleRepository.save(
+                Role.builder()
+                        .roleName(UserRole.AUDITOR)
+                        .description("Security Auditor")
+                        .build());
+
+        /*
+         * ==========================
+         * Seed Admin User
+         * ==========================
+         */
+        userRepository.save(
+                User.builder()
+                        .username("admin")
+                        .password(passwordEncoder.encode("admin123"))
+                        .email("admin@vaultguardian.ai")
+                        .enabled(true)
+                        .role(adminRole)
+                        .build());
+
+        /*
+         * ==========================
+         * Seed Servers
+         * ==========================
+         */
+        for (int i = 1; i <= 10; i++) {
+
+            Environment environment;
+
+            if (i <= 4)
+                environment = Environment.PROD;
+            else if (i <= 7)
+                environment = Environment.UAT;
+            else
+                environment = Environment.DEV;
+
+            Criticality criticality;
+
+            if (i <= 3)
+                criticality = Criticality.CRITICAL;
+            else if (i <= 6)
+                criticality = Criticality.HIGH;
+            else
+                criticality = Criticality.MEDIUM;
+
+            Server server = Server.builder()
+                    .hostname("app-server-" + i)
+                    .application(i % 2 == 0 ? "Internet Banking" : "Mobile Banking")
+                    .environment(environment)
+                    .status(ServerStatus.UP)
+                    .criticality(criticality)
+                    .owner("Platform Team")
+                    .ipAddress("10.10.1." + i)
+                    .operatingSystem("Red Hat Enterprise Linux 9")
+                    .location("Chennai Data Center")
+                    .build();
+
+            serverRepository.save(server);
+        }
+
+        /*
+         * ==========================
+         * Seed Secrets
+         * ==========================
+         */
+        List<Server> servers = serverRepository.findAll();
+
+        int counter = 1;
+
+        for (Server server : servers) {
+
+            Secret dbSecret = Secret.builder()
+                    .secretName("db-password-" + counter)
+                    .vaultReference("vault/database/" + counter)
+                    .secretType(SecretType.PASSWORD)
+                    .rotationDays(90)
+                    .lastRotated(LocalDate.now().minusDays(20))
+                    .expiryDate(LocalDate.now().plusDays(30))
+                    .active(true)
+                    .server(server)
+                    .build();
+
+            secretRepository.save(dbSecret);
+
+            Secret apiSecret = Secret.builder()
+                    .secretName("api-key-" + counter)
+                    .vaultReference("vault/api/" + counter)
+                    .secretType(SecretType.API_KEY)
+                    .rotationDays(60)
+                    .lastRotated(LocalDate.now().minusDays(10))
+                    .expiryDate(LocalDate.now().plusDays(15))
+                    .active(true)
+                    .server(server)
+                    .build();
+
+            secretRepository.save(apiSecret);
+
+            Secret sshSecret = Secret.builder()
+                    .secretName("ssh-key-" + counter)
+                    .vaultReference("vault/ssh/" + counter)
+                    .secretType(SecretType.SSH_KEY)
+                    .rotationDays(120)
+                    .lastRotated(LocalDate.now().minusDays(40))
+                    .expiryDate(LocalDate.now().plusDays(60))
+                    .active(true)
+                    .server(server)
+                    .build();
+
+            secretRepository.save(sshSecret);
+
+            counter++;
+        }
+
+        System.out.println("==========================================");
+        System.out.println(" VaultGuardian AI Sample Data Loaded");
+        System.out.println("==========================================");
+        System.out.println("Roles      : 4");
+        System.out.println("Users      : 1");
+        System.out.println("Servers    : 10");
+        System.out.println("Secrets    : 30");
+        System.out.println("Username   : admin");
+        System.out.println("Password   : admin123");
+        System.out.println("==========================================");
+    }
 }
 
