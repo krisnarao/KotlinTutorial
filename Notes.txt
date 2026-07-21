@@ -1,391 +1,64 @@
-<dependency>
-  <groupId>org.eclipse.jgit</groupId>
-  <artifactId>org.eclipse.jgit</artifactId>
-  <version>6.8.0.202311291450-r</version>
-</dependency>
-CREATE TABLE incident (
-    id SERIAL PRIMARY KEY,
-    title TEXT,
-    description TEXT,
-    service TEXT,
-    resolution TEXT,
-    embedding VECTOR(1536),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-INSERT INTO incident (title, embedding)
-VALUES (
-  'TESTING',
-  array_fill(0.1, ARRAY[1536])::vector
-);
+package com.vaultguardian.ai.config;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
 
-<dependencies>
-
-    <!-- Spring Boot -->
-    <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-web</artifactId>
-    </dependency>
-
-    <!-- JDBC -->
-    <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-jdbc</artifactId>
-    </dependency>
-
-    <!-- PostgreSQL -->
-    <dependency>
-        <groupId>org.postgresql</groupId>
-        <artifactId>postgresql</artifactId>
-    </dependency>
-
-    <!-- Lombok -->
-    <dependency>
-        <groupId>org.projectlombok</groupId>
-        <artifactId>lombok</artifactId>
-        <optional>true</optional>
-    </dependency>
-
-</dependencies>
-
-
-
-
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/incident_db
-    username: postgres
-    password: postgres
-
-  jackson:
-    serialization:
-      WRITE_DATES_AS_TIMESTAMPS: false
-
-@Data
-public class Incident {
-
-    private Long id;
-    private String title;
-    private String description;
-    private String service;
-    private String resolution;
-}
-@Data
-public class IncidentRequest {
-    private String title;
-    private String description;
-    private String service;
-    private String resolution;
-}
-
-@Data
-@AllArgsConstructor
-public class IncidentResponse {
-    private Long id;
-    private String title;
-    private String resolution;
-    private double distance;
-}
-
-
-@Component
-public class EmbeddingUtil {
-
-    public String generateEmbedding(String text) {
-
-        // TEMP: generate dummy 1536 vector
-        List<Double> vector = new ArrayList<>();
-
-        for (int i = 0; i < 1536; i++) {
-            vector.add(Math.random());
-        }
-
-        return vector.toString(); // "[0.1, 0.2, ...]"
-    }
-}
-
-
-@Repository
-public class IncidentRepository {
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
-
-    public void save(IncidentRequest request, String embedding) {
-
-        String sql = """
-            INSERT INTO incident (title, description, service, resolution, embedding)
-            VALUES (?, ?, ?, ?, ?::vector)
-        """;
-
-        jdbcTemplate.update(sql,
-                request.getTitle(),
-                request.getDescription(),
-                request.getService(),
-                request.getResolution(),
-                embedding
-        );
-    }
-
-    public List<IncidentResponse> findSimilar(String embedding) {
-
-        String sql = """
-            SELECT id, title, resolution,
-                   embedding <-> ?::vector AS distance
-            FROM incident
-            ORDER BY distance
-            LIMIT 3
-        """;
-
-        return jdbcTemplate.query(sql, new Object[]{embedding}, (rs, rowNum) ->
-                new IncidentResponse(
-                        rs.getLong("id"),
-                        rs.getString("title"),
-                        rs.getString("resolution"),
-                        rs.getDouble("distance")
-                )
-        );
-    }
-}
-
-@Service
-public class IncidentService {
-
-    @Autowired
-    private IncidentRepository repository;
-
-    @Autowired
-    private EmbeddingUtil embeddingUtil;
-
-    public void createIncident(IncidentRequest request) {
-
-        String embedding = embeddingUtil.generateEmbedding(
-                request.getTitle() + " " + request.getDescription()
-        );
-
-        repository.save(request, embedding);
-    }
-
-    public List<IncidentResponse> search(String query) {
-
-        String embedding = embeddingUtil.generateEmbedding(query);
-
-        return repository.findSimilar(embedding);
-    }
-}
-
-
-@RestController
-@RequestMapping("/api/incidents")
-public class IncidentController {
-
-    @Autowired
-    private IncidentService service;
-
-    @PostMapping
-    public ResponseEntity<?> create(@RequestBody IncidentRequest request) {
-        service.createIncident(request);
-        return ResponseEntity.ok("Saved");
-    }
-
-    @PostMapping("/search")
-    public ResponseEntity<?> search(@RequestBody Map<String, String> body) {
-        return ResponseEntity.ok(service.search(body.get("query")));
-    }
-}
-
-import { useState } from "react";
-import API from "../api";
-
-export default function CreateIncident() {
-  const [form, setForm] = useState({
-    title: "",
-    description: "",
-    service: "",
-    resolution: "",
-  });
-
-  const handleSubmit = async () => {
-    await API.post("", form);
-    alert("Incident saved!");
-  };
-
-  return (
-    <div className="card">
-      <h2>Create Incident</h2>
-
-      <input
-        placeholder="Title"
-        onChange={(e) => setForm({ ...form, title: e.target.value })}
-      />
-      <textarea
-        placeholder="Description"
-        onChange={(e) => setForm({ ...form, description: e.target.value })}
-      />
-      <input
-        placeholder="Service"
-        onChange={(e) => setForm({ ...form, service: e.target.value })}
-      />
-      <input
-        placeholder="Resolution"
-        onChange={(e) => setForm({ ...form, resolution: e.target.value })}
-      />
-
-      <button onClick={handleSubmit}>Save</button>
-    </div>
-  );
-}
-
-
-import { useState } from "react";
-import API from "../api";
-import Results from "./Results";
-
-export default function SearchIncident() {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-
-  const search = async () => {
-    const res = await API.post("/search", { query });
-    setResults(res.data);
-  };
-
-  return (
-    <div className="card">
-      <h2>Search Incidents</h2>
-
-      <input
-        placeholder="Enter issue (e.g., CPU spike)"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
-
-      <button onClick={search}>Search</button>
-
-      <Results results={results} />
-    </div>
-  );
-}
-
-export default function Results({ results }) {
-  return (
-    <div>
-      <h3>Results</h3>
-
-      {results.map((item, index) => (
-        <div key={index} className="result-card">
-          <h4>{item.title}</h4>
-          <p><b>Fix:</b> {item.resolution}</p>
-          <p><b>Similarity:</b> {item.distance.toFixed(4)}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-import CreateIncident from "./components/CreateIncident";
-import SearchIncident from "./components/SearchIncident";
-import "./App.css";
-
-function App() {
-  return (
-    <div className="container">
-      <h1>🚀 Incident Knowledge Engine</h1>
-
-      <CreateIncident />
-      <SearchIncident />
-    </div>
-  );
-}
-
-export default App;
-
-
-.container {
-  max-width: 800px;
-  margin: auto;
-  font-family: Arial;
-}
-
-.card {
-  border: 1px solid #ddd;
-  padding: 20px;
-  margin: 20px 0;
-  border-radius: 10px;
-}
-
-input, textarea {
-  width: 100%;
-  margin: 8px 0;
-  padding: 8px;
-}
-
-button {
-  padding: 10px;
-  background: black;
-  color: white;
-  border: none;
-  cursor: pointer;
-}
-
-.result-card {
-  border: 1px solid #eee;
-  padding: 10px;
-  margin-top: 10px;
-}
 @Configuration
-public class CorsConfig implements WebMvcConfigurer {
+@RequiredArgsConstructor
+public class SecurityConfig {
 
-    @Override
-    public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**")
-                .allowedOrigins("http://localhost:5173")
-                .allowedMethods("*")   // VERY IMPORTANT
-                .allowedHeaders("*")
-                .allowCredentials(true);
+    private final AuthenticationProvider authenticationProvider;
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
+        http
+
+                .csrf(csrf -> csrf.disable())
+
+                .headers(headers ->
+                        headers.frameOptions(frame -> frame.disable()))
+
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                .authenticationProvider(authenticationProvider)
+
+                .authorizeHttpRequests(auth -> auth
+
+                        .requestMatchers(
+
+                                "/api/auth/**",
+
+                                "/swagger-ui/**",
+
+                                "/swagger-ui.html",
+
+                                "/v3/api-docs/**",
+
+                                "/h2-console/**",
+
+                                "/api/health"
+
+                        ).permitAll()
+
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        .anyRequest()
+
+                        .authenticated()
+
+                )
+
+                .httpBasic(Customizer.withDefaults());
+
+        return http.build();
     }
-}
-lifecycle:
-  postStart:
-    exec:
-      command:
-        - sh
-        - -c
-        - >
-          set -ex;
-          echo "Waiting for PostgreSQL...";
-          until pg_isready -U $POSTGRES_USER -h localhost; do sleep 5; done;
-          echo "DB ready";
-          if [ -f /var/lib/postgresql/data/.restore_done ]; then
-            echo "Restore already done"; exit 0;
-          fi;
-          echo "Downloading backup...";
-          curl -f -o /tmp/backup.sql https://your-url/backup.sql;
-          echo "Restoring...";
-          PGPASSWORD=$POSTGRES_PASSWORD psql -U $POSTGRES_USER -d $POSTGRES_DB -h localhost -f /tmp/backup.sql;
-          touch /var/lib/postgresql/data/.restore_done;
-          echo "Restore completed";
-
-
-{
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test"
-  }
-}
-{
-  "name": "dependency-ui",
-  "version": "1.0.0",
-  "private": true,
-  "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-scripts": "5.0.1",
-    "d3": "^7.9.0"
-  },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test"
-  }
 }
