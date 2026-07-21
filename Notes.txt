@@ -52,3 +52,32 @@ public class ApplicationConfig {
     }
 
 }
+
+package com.vaultguardian.ai.repository;
+
+import com.vaultguardian.ai.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface UserRepository extends JpaRepository<User, Long> {
+
+    Optional<User> findByUsername(String username);
+
+    boolean existsByUsername(String username);
+
+}
+
+
+package com.vaultguardian.ai.repository;
+
+import com.vaultguardian.ai.entity.Role;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface RoleRepository extends JpaRepository<Role, Long> {
+
+    Optional<Role> findByRoleName(String roleName);
+
+}
