@@ -1,83 +1,212 @@
-package com.vaultguardian.ai.config;
+package com.vaultguardian.ai.security;
 
+import com.vaultguardian.ai.entity.User;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.util.Collection;
+import java.util.List;
+
+@RequiredArgsConstructor
+public class CustomUserDetails implements UserDetails {
+
+    private final User user;
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+
+        return List.of(
+                new SimpleGrantedAuthority(
+                        "ROLE_" + user.getRole().getRoleName()
+                )
+        );
+    }
+
+    @Override
+    public String getPassword() {
+        return user.getPassword();
+    }
+
+    @Override
+    public String getUsername() {
+        return user.getUsername();
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return Boolean.TRUE.equals(user.getEnabled());
+    }
+
+    public User getUser() {
+        return user;
+    }
+}
+
+src/main/java/com/vaultguardian/ai/security/UserDetailsServiceImpl.java
+
+package com.vaultguardian.ai.security;
+
+import com.vaultguardian.ai.entity.User;
 import com.vaultguardian.ai.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.core.userdetails.*;
+import org.springframework.stereotype.Service;
 
-@Configuration
+@Service
 @RequiredArgsConstructor
-public class ApplicationConfig {
+public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UserRepository repository;
 
-    private final PasswordEncoder passwordEncoder;
+    @Override
+    public UserDetails loadUserByUsername(String username)
+            throws UsernameNotFoundException {
 
-    @Bean
-    public UserDetailsService userDetailsService() {
+        User user = repository.findByUsername(username)
+                .orElseThrow(() ->
+                        new UsernameNotFoundException("User not found"));
 
-        return username -> repository.findByUsername(username)
+        return new CustomUserDetails(user);
+    }
+}
 
-                .orElseThrow(() -> new RuntimeException("User not found"));
+src/main/java/com/vaultguardian/ai/security/JwtService.java
 
+package com.vaultguardian.ai.security;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.stereotype.Service;
+
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.util.Date;
+
+@Service
+public class JwtService {
+
+    private static final String SECRET =
+            "VaultGuardianAccelerate2026SecretKeyForJwtAuthentication123456";
+
+    private final SecretKey key =
+            Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
+
+    private static final long EXPIRY = 86400000;
+
+    public String generateToken(String username) {
+
+        return Jwts.builder()
+                .subject(username)
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + EXPIRY))
+                .signWith(key)
+                .compact();
     }
 
-    @Bean
-    public AuthenticationProvider authenticationProvider() {
+    public String extractUsername(String token) {
 
-        DaoAuthenticationProvider provider =
-                new DaoAuthenticationProvider();
+        Claims claims = Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
 
-        provider.setUserDetailsService(userDetailsService());
-
-        provider.setPasswordEncoder(passwordEncoder);
-
-        return provider;
-
+        return claims.getSubject();
     }
 
-    @Bean
-    public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration configuration)
-            throws Exception {
+    public boolean isTokenValid(String token, String username) {
 
-        return configuration.getAuthenticationManager();
+        return username.equals(extractUsername(token));
 
     }
 
 }
 
-package com.vaultguardian.ai.repository;
+src/main/java/com/vaultguardian/ai/security/JwtAuthenticationFilter.java
 
-import com.vaultguardian.ai.entity.User;
-import org.springframework.data.jpa.repository.JpaRepository;
+package com.vaultguardian.ai.security;
 
-import java.util.Optional;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
 
-public interface UserRepository extends JpaRepository<User, Long> {
+import java.io.IOException;
 
-    Optional<User> findByUsername(String username);
+@Component
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    boolean existsByUsername(String username);
+    private final JwtService jwtService;
 
-}
+    private final UserDetailsServiceImpl userDetailsService;
 
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
 
-package com.vaultguardian.ai.repository;
+        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
-import com.vaultguardian.ai.entity.Role;
-import org.springframework.data.jpa.repository.JpaRepository;
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
-import java.util.Optional;
+        String token = authHeader.substring(7);
 
-public interface RoleRepository extends JpaRepository<Role, Long> {
+        String username = jwtService.extractUsername(token);
 
-    Optional<Role> findByRoleName(String roleName);
+        if (username != null &&
+                SecurityContextHolder.getContext().getAuthentication() == null) {
 
+            UserDetails userDetails =
+                    userDetailsService.loadUserByUsername(username);
+
+            if (jwtService.isTokenValid(token, userDetails.getUsername())) {
+
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                userDetails,
+                                null,
+                                userDetails.getAuthorities());
+
+                authentication.setDetails(
+                        new WebAuthenticationDetailsSource()
+                                .buildDetails(request));
+
+                SecurityContextHolder.getContext()
+                        .setAuthentication(authentication);
+            }
+        }
+
+        filterChain.doFilter(request, response);
+    }
 }
