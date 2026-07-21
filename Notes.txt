@@ -1,32 +1,42 @@
 package com.vaultguardian.ai.entity;
 
+import com.vaultguardian.ai.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "users")
+@Table(name = "roles")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User extends BaseEntity {
+public class Role extends BaseEntity {
 
-    @Column(nullable = false, unique = true)
-    private String username;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role_name", unique = true, nullable = false)
+    private UserRole roleName;
 
     @Column(nullable = false)
-    private String password;
-
-    @Column(nullable = false, unique = true)
-    private String email;
-
-    @Builder.Default
-    @Column(nullable = false)
-    private Boolean enabled = true;
-
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "role_id")
-    private Role role;
+    private String description;
 
 }
+
+package com.vaultguardian.ai.repository;
+
+import com.vaultguardian.ai.entity.Role;
+import com.vaultguardian.ai.enums.UserRole;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface RoleRepository extends JpaRepository<Role, Long> {
+
+    Optional<Role> findByRoleName(UserRole roleName);
+
+}
+
+
+Role role = roleRepository.findByRoleName(
+        UserRole.valueOf(request.getRole().toUpperCase()))
+        .orElseThrow();
