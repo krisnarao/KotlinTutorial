@@ -1,212 +1,128 @@
-package com.vaultguardian.ai.security;
+service/AuthService.java
+package com.vaultguardian.ai.service;
 
-import com.vaultguardian.ai.entity.User;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
+import com.vaultguardian.ai.dto.LoginRequest;
+import com.vaultguardian.ai.dto.LoginResponse;
+import com.vaultguardian.ai.dto.RegisterRequest;
 
-import java.util.Collection;
-import java.util.List;
+public interface AuthService {
 
-@RequiredArgsConstructor
-public class CustomUserDetails implements UserDetails {
+    LoginResponse login(LoginRequest request);
 
-    private final User user;
+    String register(RegisterRequest request);
 
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-
-        return List.of(
-                new SimpleGrantedAuthority(
-                        "ROLE_" + user.getRole().getRoleName()
-                )
-        );
-    }
-
-    @Override
-    public String getPassword() {
-        return user.getPassword();
-    }
-
-    @Override
-    public String getUsername() {
-        return user.getUsername();
-    }
-
-    @Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
-
-    @Override
-    public boolean isAccountNonLocked() {
-        return true;
-    }
-
-    @Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return Boolean.TRUE.equals(user.getEnabled());
-    }
-
-    public User getUser() {
-        return user;
-    }
 }
 
-src/main/java/com/vaultguardian/ai/security/UserDetailsServiceImpl.java
+package com.vaultguardian.ai.service.impl;
 
-package com.vaultguardian.ai.security;
-
+import com.vaultguardian.ai.dto.LoginRequest;
+import com.vaultguardian.ai.dto.LoginResponse;
+import com.vaultguardian.ai.dto.RegisterRequest;
+import com.vaultguardian.ai.entity.Role;
 import com.vaultguardian.ai.entity.User;
+import com.vaultguardian.ai.repository.RoleRepository;
 import com.vaultguardian.ai.repository.UserRepository;
+import com.vaultguardian.ai.security.JwtService;
+import com.vaultguardian.ai.service.AuthService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.userdetails.*;
-import org.springframework.stereotype.Service;
-
-@Service
-@RequiredArgsConstructor
-public class UserDetailsServiceImpl implements UserDetailsService {
-
-    private final UserRepository repository;
-
-    @Override
-    public UserDetails loadUserByUsername(String username)
-            throws UsernameNotFoundException {
-
-        User user = repository.findByUsername(username)
-                .orElseThrow(() ->
-                        new UsernameNotFoundException("User not found"));
-
-        return new CustomUserDetails(user);
-    }
-}
-
-src/main/java/com/vaultguardian/ai/security/JwtService.java
-
-package com.vaultguardian.ai.security;
-
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
-import org.springframework.stereotype.Service;
-
-import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
-import java.util.Date;
-
-@Service
-public class JwtService {
-
-    private static final String SECRET =
-            "VaultGuardianAccelerate2026SecretKeyForJwtAuthentication123456";
-
-    private final SecretKey key =
-            Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
-
-    private static final long EXPIRY = 86400000;
-
-    public String generateToken(String username) {
-
-        return Jwts.builder()
-                .subject(username)
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + EXPIRY))
-                .signWith(key)
-                .compact();
-    }
-
-    public String extractUsername(String token) {
-
-        Claims claims = Jwts.parser()
-                .verifyWith(key)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-
-        return claims.getSubject();
-    }
-
-    public boolean isTokenValid(String token, String username) {
-
-        return username.equals(extractUsername(token));
-
-    }
-
-}
-
-src/main/java/com/vaultguardian/ai/security/JwtAuthenticationFilter.java
-
-package com.vaultguardian.ai.security;
-
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-
-@Component
+@Service
 @RequiredArgsConstructor
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
+public class AuthServiceImpl implements AuthService {
+
+    private final UserRepository userRepository;
+
+    private final RoleRepository roleRepository;
+
+    private final PasswordEncoder passwordEncoder;
+
+    private final AuthenticationManager authenticationManager;
 
     private final JwtService jwtService;
 
-    private final UserDetailsServiceImpl userDetailsService;
+    @Override
+    public LoginResponse login(LoginRequest request) {
+
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.getUsername(),
+                        request.getPassword()
+                ));
+
+        User user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow();
+
+        String token = jwtService.generateToken(user.getUsername());
+
+        return LoginResponse.builder()
+                .username(user.getUsername())
+                .role(user.getRole().getRoleName().name())
+                .token(token)
+                .build();
+    }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain)
-            throws ServletException, IOException {
+    public String register(RegisterRequest request) {
 
-        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new RuntimeException("User already exists");
         }
 
-        String token = authHeader.substring(7);
+        Role role = roleRepository.findByRoleName(
+                Enum.valueOf(com.vaultguardian.ai.enums.UserRole.class,
+                        request.getRole().toUpperCase()))
+                .orElseThrow();
 
-        String username = jwtService.extractUsername(token);
+        User user = User.builder()
+                .username(request.getUsername())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .enabled(true)
+                .role(role)
+                .build();
 
-        if (username != null &&
-                SecurityContextHolder.getContext().getAuthentication() == null) {
+        userRepository.save(user);
 
-            UserDetails userDetails =
-                    userDetailsService.loadUserByUsername(username);
-
-            if (jwtService.isTokenValid(token, userDetails.getUsername())) {
-
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                userDetails.getAuthorities());
-
-                authentication.setDetails(
-                        new WebAuthenticationDetailsSource()
-                                .buildDetails(request));
-
-                SecurityContextHolder.getContext()
-                        .setAuthentication(authentication);
-            }
-        }
-
-        filterChain.doFilter(request, response);
+        return "User Registered Successfully";
     }
 }
+
+package com.vaultguardian.ai.controller;
+
+import com.vaultguardian.ai.dto.LoginRequest;
+import com.vaultguardian.ai.dto.LoginResponse;
+import com.vaultguardian.ai.dto.RegisterRequest;
+import com.vaultguardian.ai.service.AuthService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+public class AuthController {
+
+    private final AuthService authService;
+
+    @PostMapping("/login")
+    public LoginResponse login(
+            @Valid @RequestBody LoginRequest request) {
+
+        return authService.login(request);
+
+    }
+
+    @PostMapping("/register")
+    public String register(
+            @Valid @RequestBody RegisterRequest request) {
+
+        return authService.register(request);
+
+    }
+
+}
+
