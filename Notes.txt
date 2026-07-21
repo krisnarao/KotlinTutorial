@@ -1,143 +1,161 @@
-package com.vaultguardian.ai.enums;
+package com.vaultguardian.ai.service.impl;
 
-public enum BreakGlassStatus {
-
-    PENDING,
-
-    APPROVED,
-
-    REJECTED
-
-}
-...
-
-package com.vaultguardian.ai.entity;
-
-import com.vaultguardian.ai.enums.BreakGlassStatus;
-import jakarta.persistence.*;
-import lombok.*;
-
-import java.time.LocalDateTime;
-
-@Entity
-@Table(name="breakglass_requests")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class BreakGlassRequest extends BaseEntity {
-
-    @ManyToOne
-    @JoinColumn(name="secret_id")
-    private Secret secret;
-
-    private String requestedBy;
-
-    private String reason;
-
-    private LocalDateTime requestedAt;
-
-    @Enumerated(EnumType.STRING)
-    private BreakGlassStatus status;
-
-    private String approvedBy;
-
-    private LocalDateTime approvedAt;
-
-}
-
-...
-package com.vaultguardian.ai.dto;
-
-import lombok.*;
-
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class BreakGlassRequestDto {
-
-    private Long secretId;
-
-    private String requestedBy;
-
-    private String reason;
-
-}
-
-....
-
-package com.vaultguardian.ai.dto;
-
-import com.vaultguardian.ai.enums.BreakGlassStatus;
-import lombok.*;
-
-import java.time.LocalDateTime;
-
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class BreakGlassResponse {
-
-    private Long id;
-
-    private String secretName;
-
-    private String requestedBy;
-
-    private String reason;
-
-    private BreakGlassStatus status;
-
-    private String approvedBy;
-
-    private LocalDateTime requestedAt;
-
-    private LocalDateTime approvedAt;
-
-}
-....
-
-package com.vaultguardian.ai.repository;
-
+import com.vaultguardian.ai.dto.BreakGlassRequestDto;
+import com.vaultguardian.ai.dto.BreakGlassResponse;
 import com.vaultguardian.ai.entity.BreakGlassRequest;
+import com.vaultguardian.ai.entity.Secret;
 import com.vaultguardian.ai.enums.BreakGlassStatus;
-import org.springframework.data.jpa.repository.JpaRepository;
+import com.vaultguardian.ai.repository.BreakGlassRepository;
+import com.vaultguardian.ai.repository.SecretRepository;
+import com.vaultguardian.ai.service.BreakGlassService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class BreakGlassServiceImpl implements BreakGlassService {
+
+    private final BreakGlassRepository breakGlassRepository;
+
+    private final SecretRepository secretRepository;
+
+    @Override
+    public BreakGlassResponse requestAccess(BreakGlassRequestDto request) {
+
+        Secret secret = secretRepository.findById(request.getSecretId())
+                .orElseThrow(() -> new RuntimeException("Secret not found"));
+
+        BreakGlassRequest entity = BreakGlassRequest.builder()
+                .secret(secret)
+                .requestedBy(request.getRequestedBy())
+                .reason(request.getReason())
+                .requestedAt(LocalDateTime.now())
+                .status(BreakGlassStatus.PENDING)
+                .build();
+
+        return map(breakGlassRepository.save(entity));
+    }
+
+    @Override
+    public List<BreakGlassResponse> pendingRequests() {
+
+        return breakGlassRepository
+                .findByStatus(BreakGlassStatus.PENDING)
+                .stream()
+                .map(this::map)
+                .collect(Collectors.toList());
+
+    }
+
+    @Override
+    public BreakGlassResponse approve(Long id, String approver) {
+
+        BreakGlassRequest request = breakGlassRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Request not found"));
+
+        request.setStatus(BreakGlassStatus.APPROVED);
+        request.setApprovedBy(approver);
+        request.setApprovedAt(LocalDateTime.now());
+
+        return map(breakGlassRepository.save(request));
+    }
+
+    @Override
+    public BreakGlassResponse reject(Long id, String approver) {
+
+        BreakGlassRequest request = breakGlassRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Request not found"));
+
+        request.setStatus(BreakGlassStatus.REJECTED);
+        request.setApprovedBy(approver);
+        request.setApprovedAt(LocalDateTime.now());
+
+        return map(breakGlassRepository.save(request));
+    }
+
+    @Override
+    public List<BreakGlassResponse> history() {
+
+        return breakGlassRepository.findAll()
+                .stream()
+                .map(this::map)
+                .collect(Collectors.toList());
+
+    }
+
+    private BreakGlassResponse map(BreakGlassRequest entity) {
+
+        return BreakGlassResponse.builder()
+                .id(entity.getId())
+                .secretName(entity.getSecret().getSecretName())
+                .requestedBy(entity.getRequestedBy())
+                .reason(entity.getReason())
+                .status(entity.getStatus())
+                .approvedBy(entity.getApprovedBy())
+                .requestedAt(entity.getRequestedAt())
+                .approvedAt(entity.getApprovedAt())
+                .build();
+
+    }
+
+}
+
+...
+package com.vaultguardian.ai.controller;
+
+import com.vaultguardian.ai.dto.BreakGlassRequestDto;
+import com.vaultguardian.ai.dto.BreakGlassResponse;
+import com.vaultguardian.ai.service.BreakGlassService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-public interface BreakGlassRepository
-        extends JpaRepository<BreakGlassRequest,Long>{
+@RestController
+@RequestMapping("/api/breakglass")
+@RequiredArgsConstructor
+public class BreakGlassController {
 
-    List<BreakGlassRequest> findByStatus(BreakGlassStatus status);
+    private final BreakGlassService breakGlassService;
+
+    @PostMapping("/request")
+    public BreakGlassResponse requestAccess(
+            @Valid @RequestBody BreakGlassRequestDto request) {
+
+        return breakGlassService.requestAccess(request);
+    }
+
+    @GetMapping("/pending")
+    public List<BreakGlassResponse> pendingRequests() {
+
+        return breakGlassService.pendingRequests();
+    }
+
+    @PostMapping("/{id}/approve")
+    public BreakGlassResponse approve(
+            @PathVariable Long id,
+            @RequestParam String approver) {
+
+        return breakGlassService.approve(id, approver);
+    }
+
+    @PostMapping("/{id}/reject")
+    public BreakGlassResponse reject(
+            @PathVariable Long id,
+            @RequestParam String approver) {
+
+        return breakGlassService.reject(id, approver);
+    }
+
+    @GetMapping("/history")
+    public List<BreakGlassResponse> history() {
+
+        return breakGlassService.history();
+    }
 
 }
-...
-
-
-package com.vaultguardian.ai.service;
-
-import com.vaultguardian.ai.dto.*;
-
-import java.util.List;
-
-public interface BreakGlassService {
-
-    BreakGlassResponse requestAccess(BreakGlassRequestDto request);
-
-    List<BreakGlassResponse> pendingRequests();
-
-    BreakGlassResponse approve(Long id,String approver);
-
-    BreakGlassResponse reject(Long id,String approver);
-
-    List<BreakGlassResponse> history();
-
-}
-
-...
-
