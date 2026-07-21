@@ -1,181 +1,156 @@
+package com.vaultguardian.ai.dto;
+
+import lombok.*;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class AIRecommendation {
+
+    private String severity;
+
+    private String title;
+
+    private String recommendation;
+
+    private String category;
+
+}
+
+....
+package com.vaultguardian.ai.service;
+
+import com.vaultguardian.ai.dto.AIRecommendation;
+
+import java.util.List;
+
+public interface AIRecommendationService {
+
+    List<AIRecommendation> generateRecommendations();
+
+}
+
+....
 package com.vaultguardian.ai.service.impl;
 
-import com.vaultguardian.ai.dto.BreakGlassRequestDto;
-import com.vaultguardian.ai.dto.BreakGlassResponse;
-import com.vaultguardian.ai.entity.BreakGlassRequest;
-import com.vaultguardian.ai.entity.Secret;
+import com.vaultguardian.ai.dto.AIRecommendation;
 import com.vaultguardian.ai.enums.BreakGlassStatus;
+import com.vaultguardian.ai.enums.Criticality;
 import com.vaultguardian.ai.repository.BreakGlassRepository;
 import com.vaultguardian.ai.repository.SecretRepository;
-import com.vaultguardian.ai.service.BreakGlassService;
+import com.vaultguardian.ai.repository.ServerRepository;
+import com.vaultguardian.ai.service.AIRecommendationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class BreakGlassServiceImpl implements BreakGlassService {
+public class AIRecommendationServiceImpl
+        implements AIRecommendationService {
 
-    private final BreakGlassRepository breakGlassRepository;
+    private final ServerRepository serverRepository;
 
     private final SecretRepository secretRepository;
 
-    @Override
-    public BreakGlassResponse requestAccess(BreakGlassRequestDto request) {
-
-        Secret secret = secretRepository.findById(request.getSecretId())
-                .orElseThrow(() ->
-                        new RuntimeException("Secret not found"));
-
-        Integer duration = request.getAccessDurationMinutes();
-
-        if (duration == null || duration <= 0) {
-            duration = 30;
-        }
-
-        BreakGlassRequest entity = BreakGlassRequest.builder()
-                .secret(secret)
-                .requestedBy(request.getRequestedBy())
-                .reason(request.getReason())
-                .justification(request.getJustification())
-                .requestedAt(LocalDateTime.now())
-                .status(BreakGlassStatus.PENDING)
-                .accessDurationMinutes(duration)
-                .accessGranted(false)
-                .build();
-
-        return map(breakGlassRepository.save(entity));
-    }
+    private final BreakGlassRepository breakGlassRepository;
 
     @Override
-    public List<BreakGlassResponse> pendingRequests() {
+    public List<AIRecommendation> generateRecommendations() {
 
-        return breakGlassRepository
-                .findByStatus(BreakGlassStatus.PENDING)
-                .stream()
-                .map(this::map)
-                .collect(Collectors.toList());
+        List<AIRecommendation> list = new ArrayList<>();
 
-    }
+        long expiringSecrets =
+                secretRepository.countByExpiryDateBetween(
+                        LocalDate.now(),
+                        LocalDate.now().plusDays(30));
 
-    @Override
-    public BreakGlassResponse approve(Long id, String approver) {
+        if(expiringSecrets>0){
 
-        BreakGlassRequest request = breakGlassRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Request not found"));
-
-        if (request.getStatus() != BreakGlassStatus.PENDING) {
-            throw new RuntimeException("Request already processed");
-        }
-
-        request.setStatus(BreakGlassStatus.APPROVED);
-
-        request.setApprovedBy(approver);
-
-        request.setApprovedAt(LocalDateTime.now());
-
-        request.setAccessGranted(true);
-
-        request.setAccessedAt(LocalDateTime.now());
-
-        request.setAccessExpiresAt(
-                LocalDateTime.now()
-                        .plusMinutes(request.getAccessDurationMinutes()));
-
-        return map(breakGlassRepository.save(request));
-    }
-
-    @Override
-    public BreakGlassResponse reject(Long id, String approver) {
-
-        BreakGlassRequest request = breakGlassRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Request not found"));
-
-        if (request.getStatus() != BreakGlassStatus.PENDING) {
-            throw new RuntimeException("Request already processed");
-        }
-
-        request.setStatus(BreakGlassStatus.REJECTED);
-
-        request.setApprovedBy(approver);
-
-        request.setApprovedAt(LocalDateTime.now());
-
-        request.setAccessGranted(false);
-
-        return map(breakGlassRepository.save(request));
-    }
-
-    @Override
-    public List<BreakGlassResponse> history() {
-
-        return breakGlassRepository
-                .findAll()
-                .stream()
-                .map(this::map)
-                .collect(Collectors.toList());
-
-    }
-
-    @Override
-    public BreakGlassResponse checkAccess(Long id) {
-
-        BreakGlassRequest request = breakGlassRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Request not found"));
-
-        if (request.getStatus() != BreakGlassStatus.APPROVED) {
-            throw new RuntimeException("Access is not approved.");
-        }
-
-        if (LocalDateTime.now().isAfter(request.getAccessExpiresAt())) {
-
-            request.setStatus(BreakGlassStatus.EXPIRED);
-
-            request.setAccessGranted(false);
-
-            breakGlassRepository.save(request);
+            list.add(
+                    AIRecommendation.builder()
+                            .severity("HIGH")
+                            .category("Secret Rotation")
+                            .title("Secrets Expiring Soon")
+                            .recommendation(
+                                    expiringSecrets+
+                                            " secrets will expire within 30 days. Rotate immediately.")
+                            .build());
 
         }
 
-        return map(request);
+        long pending=
+                breakGlassRepository.countByStatus(
+                        BreakGlassStatus.PENDING);
 
-    }
+        if(pending>0){
 
-    private BreakGlassResponse map(BreakGlassRequest entity) {
+            list.add(
+                    AIRecommendation.builder()
+                            .severity("MEDIUM")
+                            .category("BreakGlass")
+                            .title("Pending Approval")
+                            .recommendation(
+                                    pending+
+                                            " emergency access requests require approval.")
+                            .build());
 
-        return BreakGlassResponse.builder()
+        }
 
-                .id(entity.getId())
+        long critical=
+                serverRepository.countByCriticality(
+                        Criticality.CRITICAL);
 
-                .secretName(entity.getSecret().getSecretName())
+        if(critical>2){
 
-                .requestedBy(entity.getRequestedBy())
+            list.add(
+                    AIRecommendation.builder()
+                            .severity("HIGH")
+                            .category("Infrastructure")
+                            .title("Critical Servers")
+                            .recommendation(
+                                    critical+
+                                            " production servers are marked as CRITICAL. Review privileged access.")
+                            .build());
 
-                .reason(entity.getReason())
+        }
 
-                .justification(entity.getJustification())
+        long inactive=
+                secretRepository.countByActive(false);
 
-                .status(entity.getStatus())
+        if(inactive>0){
 
-                .approvedBy(entity.getApprovedBy())
+            list.add(
+                    AIRecommendation.builder()
+                            .severity("LOW")
+                            .category("Secrets")
+                            .title("Inactive Secrets")
+                            .recommendation(
+                                    inactive+
+                                            " inactive secrets can be archived.")
+                            .build());
 
-                .requestedAt(entity.getRequestedAt())
+        }
 
-                .approvedAt(entity.getApprovedAt())
+        if(list.isEmpty()){
 
-                .accessDurationMinutes(entity.getAccessDurationMinutes())
+            list.add(
+                    AIRecommendation.builder()
+                            .severity("INFO")
+                            .category("Overall")
+                            .title("Healthy Environment")
+                            .recommendation(
+                                    "No immediate security risks detected.")
+                            .build());
 
-                .accessExpiresAt(entity.getAccessExpiresAt())
+        }
 
-                .accessGranted(entity.getAccessGranted())
-
-                .build();
+        return list;
 
     }
 
@@ -184,82 +159,31 @@ public class BreakGlassServiceImpl implements BreakGlassService {
 ....
 package com.vaultguardian.ai.controller;
 
-import com.vaultguardian.ai.dto.BreakGlassRequestDto;
-import com.vaultguardian.ai.dto.BreakGlassResponse;
-import com.vaultguardian.ai.service.BreakGlassService;
-import jakarta.validation.Valid;
+import com.vaultguardian.ai.dto.AIRecommendation;
+import com.vaultguardian.ai.service.AIRecommendationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/breakglass")
+@RequestMapping("/api/ai")
 @RequiredArgsConstructor
-public class BreakGlassController {
+public class AIRecommendationController {
 
-    private final BreakGlassService breakGlassService;
+    private final AIRecommendationService service;
 
-    /**
-     * Create a new Break Glass request
-     */
-    @PostMapping("/request")
-    public BreakGlassResponse requestAccess(
-            @Valid @RequestBody BreakGlassRequestDto request) {
+    @GetMapping("/recommendations")
+    public List<AIRecommendation> recommendations(){
 
-        return breakGlassService.requestAccess(request);
+        return service.generateRecommendations();
+
     }
-
-    /**
-     * Get all pending requests
-     */
-    @GetMapping("/pending")
-    public List<BreakGlassResponse> pendingRequests() {
-
-        return breakGlassService.pendingRequests();
-    }
-
-    /**
-     * Approve a request
-     */
-    @PostMapping("/{id}/approve")
-    public BreakGlassResponse approveRequest(
-            @PathVariable Long id,
-            @RequestParam String approver) {
-
-        return breakGlassService.approve(id, approver);
-    }
-
-    /**
-     * Reject a request
-     */
-    @PostMapping("/{id}/reject")
-    public BreakGlassResponse rejectRequest(
-            @PathVariable Long id,
-            @RequestParam String approver) {
-
-        return breakGlassService.reject(id, approver);
-    }
-
-    /**
-     * Get complete request history
-     */
-    @GetMapping("/history")
-    public List<BreakGlassResponse> history() {
-
-        return breakGlassService.history();
-    }
-
-    /**
-     * Check access status.
-     * If access has expired, it will automatically
-     * update the request status to EXPIRED.
-     */
-    @GetMapping("/{id}/access")
-    public BreakGlassResponse checkAccess(
-            @PathVariable Long id) {
-
-        return breakGlassService.checkAccess(id);
-    }
-
+long countByStatus(BreakGlassStatus status);
 }
+...
+long countByExpiryDateBetween(LocalDate start,
+                              LocalDate end);
+
+
+
