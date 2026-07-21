@@ -1,42 +1,335 @@
 package com.vaultguardian.ai.entity;
 
-import com.vaultguardian.ai.enums.UserRole;
+import com.vaultguardian.ai.enums.Criticality;
+import com.vaultguardian.ai.enums.Environment;
+import com.vaultguardian.ai.enums.ServerStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "roles")
+@Table(name="servers")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Role extends BaseEntity {
+public class Server extends BaseEntity{
+
+    @Column(nullable=false,unique=true)
+    private String hostname;
+
+    @Column(nullable=false)
+    private String application;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "role_name", unique = true, nullable = false)
-    private UserRole roleName;
+    private Environment environment;
 
-    @Column(nullable = false)
-    private String description;
+    @Enumerated(EnumType.STRING)
+    private ServerStatus status;
+
+    @Enumerated(EnumType.STRING)
+    private Criticality criticality;
+
+    private String owner;
+
+    private String ipAddress;
+
+    private String operatingSystem;
+
+    private String location;
 
 }
-
+...
 package com.vaultguardian.ai.repository;
 
-import com.vaultguardian.ai.entity.Role;
-import com.vaultguardian.ai.enums.UserRole;
+import com.vaultguardian.ai.entity.Server;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.Optional;
+public interface ServerRepository
+extends JpaRepository<Server,Long>{
 
-public interface RoleRepository extends JpaRepository<Role, Long> {
+}
+///
 
-    Optional<Role> findByRoleName(UserRole roleName);
+package com.vaultguardian.ai.dto;
+
+import com.vaultguardian.ai.enums.Criticality;
+import com.vaultguardian.ai.enums.Environment;
+import lombok.*;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class ServerRequest{
+
+    private String hostname;
+
+    private String application;
+
+    private Environment environment;
+
+    private Criticality criticality;
+
+    private String owner;
+
+    private String ipAddress;
+
+    private String operatingSystem;
+
+    private String location;
 
 }
 
 
-Role role = roleRepository.findByRoleName(
-        UserRole.valueOf(request.getRole().toUpperCase()))
-        .orElseThrow();
+package com.vaultguardian.ai.dto;
+
+import com.vaultguardian.ai.enums.*;
+import lombok.*;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class ServerResponse{
+
+    private Long id;
+
+    private String hostname;
+
+    private String application;
+
+    private Environment environment;
+
+    private ServerStatus status;
+
+    private Criticality criticality;
+
+    private String owner;
+
+    private String ipAddress;
+
+}
+....
+package com.vaultguardian.ai.service;
+
+import com.vaultguardian.ai.dto.*;
+
+import java.util.List;
+
+public interface ServerService {
+
+    ServerResponse create(ServerRequest request);
+
+    List<ServerResponse> findAll();
+
+    ServerResponse findById(Long id);
+
+    ServerResponse update(Long id,ServerRequest request);
+
+    void delete(Long id);
+
+}
+
+
+....
+package com.vaultguardian.ai.service.impl;
+
+import com.vaultguardian.ai.dto.ServerRequest;
+import com.vaultguardian.ai.dto.ServerResponse;
+import com.vaultguardian.ai.entity.Server;
+import com.vaultguardian.ai.enums.ServerStatus;
+import com.vaultguardian.ai.repository.ServerRepository;
+import com.vaultguardian.ai.service.ServerService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class ServerServiceImpl implements ServerService {
+
+    private final ServerRepository repository;
+
+    @Override
+    public ServerResponse create(ServerRequest request) {
+
+        Server server = Server.builder()
+                .hostname(request.getHostname())
+                .application(request.getApplication())
+                .environment(request.getEnvironment())
+                .criticality(request.getCriticality())
+                .owner(request.getOwner())
+                .ipAddress(request.getIpAddress())
+                .operatingSystem(request.getOperatingSystem())
+                .location(request.getLocation())
+                .status(ServerStatus.UP)
+                .build();
+
+        return map(repository.save(server));
+    }
+
+    @Override
+    public List<ServerResponse> findAll() {
+
+        return repository.findAll()
+                .stream()
+                .map(this::map)
+                .collect(Collectors.toList());
+
+    }
+
+    @Override
+    public ServerResponse findById(Long id) {
+
+        Server server = repository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Server not found"));
+
+        return map(server);
+
+    }
+
+    @Override
+    public ServerResponse update(Long id,
+                                 ServerRequest request) {
+
+        Server server = repository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Server not found"));
+
+        server.setHostname(request.getHostname());
+        server.setApplication(request.getApplication());
+        server.setEnvironment(request.getEnvironment());
+        server.setCriticality(request.getCriticality());
+        server.setOwner(request.getOwner());
+        server.setIpAddress(request.getIpAddress());
+        server.setOperatingSystem(request.getOperatingSystem());
+        server.setLocation(request.getLocation());
+
+        return map(repository.save(server));
+
+    }
+
+    @Override
+    public void delete(Long id) {
+
+        repository.deleteById(id);
+
+    }
+
+    private ServerResponse map(Server server) {
+
+        return ServerResponse.builder()
+
+                .id(server.getId())
+
+                .hostname(server.getHostname())
+
+                .application(server.getApplication())
+
+                .environment(server.getEnvironment())
+
+                .status(server.getStatus())
+
+                .criticality(server.getCriticality())
+
+                .owner(server.getOwner())
+
+                .ipAddress(server.getIpAddress())
+
+                .build();
+
+    }
+
+}
+
+package com.vaultguardian.ai.controller;
+
+import com.vaultguardian.ai.dto.ServerRequest;
+import com.vaultguardian.ai.dto.ServerResponse;
+import com.vaultguardian.ai.service.ServerService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/servers")
+@RequiredArgsConstructor
+public class ServerController {
+
+    private final ServerService service;
+
+    @PostMapping
+    public ServerResponse create(
+            @Valid
+            @RequestBody
+            ServerRequest request) {
+
+        return service.create(request);
+
+    }
+
+    @GetMapping
+    public List<ServerResponse> getAll() {
+
+        return service.findAll();
+
+    }
+
+    @GetMapping("/{id}")
+    public ServerResponse getById(
+            @PathVariable Long id) {
+
+        return service.findById(id);
+
+    }
+
+    @PutMapping("/{id}")
+    public ServerResponse update(
+            @PathVariable Long id,
+            @RequestBody ServerRequest request) {
+
+        return service.update(id, request);
+
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(
+            @PathVariable Long id) {
+
+        service.delete(id);
+
+    }
+
+}
+
+
+...
+import java.util.Optional;
+
+public interface ServerRepository extends JpaRepository<Server, Long> {
+
+    Optional<Server> findByHostname(String hostname);
+
+    boolean existsByHostname(String hostname);
+
+}
+...
+@NotBlank
+private String hostname;
+
+@NotBlank
+private String application;
+
+@NotNull
+private Environment environment;
+
+@NotNull
+private Criticality criticality;
