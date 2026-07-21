@@ -27,14 +27,24 @@ public class BreakGlassServiceImpl implements BreakGlassService {
     public BreakGlassResponse requestAccess(BreakGlassRequestDto request) {
 
         Secret secret = secretRepository.findById(request.getSecretId())
-                .orElseThrow(() -> new RuntimeException("Secret not found"));
+                .orElseThrow(() ->
+                        new RuntimeException("Secret not found"));
+
+        Integer duration = request.getAccessDurationMinutes();
+
+        if (duration == null || duration <= 0) {
+            duration = 30;
+        }
 
         BreakGlassRequest entity = BreakGlassRequest.builder()
                 .secret(secret)
                 .requestedBy(request.getRequestedBy())
                 .reason(request.getReason())
+                .justification(request.getJustification())
                 .requestedAt(LocalDateTime.now())
                 .status(BreakGlassStatus.PENDING)
+                .accessDurationMinutes(duration)
+                .accessGranted(false)
                 .build();
 
         return map(breakGlassRepository.save(entity));
@@ -55,11 +65,26 @@ public class BreakGlassServiceImpl implements BreakGlassService {
     public BreakGlassResponse approve(Long id, String approver) {
 
         BreakGlassRequest request = breakGlassRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Request not found"));
+                .orElseThrow(() ->
+                        new RuntimeException("Request not found"));
+
+        if (request.getStatus() != BreakGlassStatus.PENDING) {
+            throw new RuntimeException("Request already processed");
+        }
 
         request.setStatus(BreakGlassStatus.APPROVED);
+
         request.setApprovedBy(approver);
+
         request.setApprovedAt(LocalDateTime.now());
+
+        request.setAccessGranted(true);
+
+        request.setAccessedAt(LocalDateTime.now());
+
+        request.setAccessExpiresAt(
+                LocalDateTime.now()
+                        .plusMinutes(request.getAccessDurationMinutes()));
 
         return map(breakGlassRepository.save(request));
     }
@@ -68,11 +93,20 @@ public class BreakGlassServiceImpl implements BreakGlassService {
     public BreakGlassResponse reject(Long id, String approver) {
 
         BreakGlassRequest request = breakGlassRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Request not found"));
+                .orElseThrow(() ->
+                        new RuntimeException("Request not found"));
+
+        if (request.getStatus() != BreakGlassStatus.PENDING) {
+            throw new RuntimeException("Request already processed");
+        }
 
         request.setStatus(BreakGlassStatus.REJECTED);
+
         request.setApprovedBy(approver);
+
         request.setApprovedAt(LocalDateTime.now());
+
+        request.setAccessGranted(false);
 
         return map(breakGlassRepository.save(request));
     }
@@ -80,31 +114,74 @@ public class BreakGlassServiceImpl implements BreakGlassService {
     @Override
     public List<BreakGlassResponse> history() {
 
-        return breakGlassRepository.findAll()
+        return breakGlassRepository
+                .findAll()
                 .stream()
                 .map(this::map)
                 .collect(Collectors.toList());
 
     }
 
+    @Override
+    public BreakGlassResponse checkAccess(Long id) {
+
+        BreakGlassRequest request = breakGlassRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Request not found"));
+
+        if (request.getStatus() != BreakGlassStatus.APPROVED) {
+            throw new RuntimeException("Access is not approved.");
+        }
+
+        if (LocalDateTime.now().isAfter(request.getAccessExpiresAt())) {
+
+            request.setStatus(BreakGlassStatus.EXPIRED);
+
+            request.setAccessGranted(false);
+
+            breakGlassRepository.save(request);
+
+        }
+
+        return map(request);
+
+    }
+
     private BreakGlassResponse map(BreakGlassRequest entity) {
 
         return BreakGlassResponse.builder()
+
                 .id(entity.getId())
+
                 .secretName(entity.getSecret().getSecretName())
+
                 .requestedBy(entity.getRequestedBy())
+
                 .reason(entity.getReason())
+
+                .justification(entity.getJustification())
+
                 .status(entity.getStatus())
+
                 .approvedBy(entity.getApprovedBy())
+
                 .requestedAt(entity.getRequestedAt())
+
                 .approvedAt(entity.getApprovedAt())
+
+                .accessDurationMinutes(entity.getAccessDurationMinutes())
+
+                .accessExpiresAt(entity.getAccessExpiresAt())
+
+                .accessGranted(entity.getAccessGranted())
+
                 .build();
 
     }
 
 }
 
-...
+....
 package com.vaultguardian.ai.controller;
 
 import com.vaultguardian.ai.dto.BreakGlassRequestDto;
@@ -123,6 +200,9 @@ public class BreakGlassController {
 
     private final BreakGlassService breakGlassService;
 
+    /**
+     * Create a new Break Glass request
+     */
     @PostMapping("/request")
     public BreakGlassResponse requestAccess(
             @Valid @RequestBody BreakGlassRequestDto request) {
@@ -130,32 +210,56 @@ public class BreakGlassController {
         return breakGlassService.requestAccess(request);
     }
 
+    /**
+     * Get all pending requests
+     */
     @GetMapping("/pending")
     public List<BreakGlassResponse> pendingRequests() {
 
         return breakGlassService.pendingRequests();
     }
 
+    /**
+     * Approve a request
+     */
     @PostMapping("/{id}/approve")
-    public BreakGlassResponse approve(
+    public BreakGlassResponse approveRequest(
             @PathVariable Long id,
             @RequestParam String approver) {
 
         return breakGlassService.approve(id, approver);
     }
 
+    /**
+     * Reject a request
+     */
     @PostMapping("/{id}/reject")
-    public BreakGlassResponse reject(
+    public BreakGlassResponse rejectRequest(
             @PathVariable Long id,
             @RequestParam String approver) {
 
         return breakGlassService.reject(id, approver);
     }
 
+    /**
+     * Get complete request history
+     */
     @GetMapping("/history")
     public List<BreakGlassResponse> history() {
 
         return breakGlassService.history();
+    }
+
+    /**
+     * Check access status.
+     * If access has expired, it will automatically
+     * update the request status to EXPIRED.
+     */
+    @GetMapping("/{id}/access")
+    public BreakGlassResponse checkAccess(
+            @PathVariable Long id) {
+
+        return breakGlassService.checkAccess(id);
     }
 
 }
