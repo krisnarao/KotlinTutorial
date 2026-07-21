@@ -1,110 +1,58 @@
-package com.vaultguardian.ai.dto;
+@Override
+public List<ServerResponse> getRecentServers() {
 
-import lombok.*;
+    return serverRepository
+            .findTop5ByOrderByCreatedAtDesc()
+            .stream()
+            .map(server -> ServerResponse.builder()
+                    .id(server.getId())
+                    .hostname(server.getHostname())
+                    .application(server.getApplication())
+                    .environment(server.getEnvironment())
+                    .status(server.getStatus())
+                    .criticality(server.getCriticality())
+                    .owner(server.getOwner())
+                    .ipAddress(server.getIpAddress())
+                    .build())
+            .toList();
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class DashboardResponse {
+}
+@Override
+public List<SecretResponse> getExpiringSecrets() {
 
-    private long totalServers;
-
-    private long totalSecrets;
-
-    private long activeSecrets;
-
-    private long inactiveSecrets;
-
-    private long criticalServers;
-
-    private long expiringSecrets;
+    return secretRepository
+            .findByExpiryDateBeforeOrderByExpiryDateAsc(
+                    LocalDate.now().plusDays(30))
+            .stream()
+            .map(secret -> SecretResponse.builder()
+                    .id(secret.getId())
+                    .secretName(secret.getSecretName())
+                    .vaultReference(secret.getVaultReference())
+                    .secretType(secret.getSecretType())
+                    .rotationDays(secret.getRotationDays())
+                    .lastRotated(secret.getLastRotated())
+                    .expiryDate(secret.getExpiryDate())
+                    .active(secret.getActive())
+                    .serverName(secret.getServer().getHostname())
+                    .build())
+            .toList();
 
 }
 
-..
-package com.vaultguardian.ai.service;
 
-import com.vaultguardian.ai.dto.DashboardResponse;
 
-public interface DashboardService {
+....
+@GetMapping("/recent-servers")
+public List<ServerResponse> recentServers() {
 
-    DashboardResponse getDashboard();
+    return dashboardService.getRecentServers();
 
 }
 
 ...
-package com.vaultguardian.ai.service.impl;
+@GetMapping("/expiring-secrets")
+public List<SecretResponse> expiringSecrets() {
 
-import com.vaultguardian.ai.dto.DashboardResponse;
-import com.vaultguardian.ai.enums.Criticality;
-import com.vaultguardian.ai.repository.SecretRepository;
-import com.vaultguardian.ai.repository.ServerRepository;
-import com.vaultguardian.ai.service.DashboardService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
-import java.time.LocalDate;
-
-@Service
-@RequiredArgsConstructor
-public class DashboardServiceImpl implements DashboardService {
-
-    private final ServerRepository serverRepository;
-
-    private final SecretRepository secretRepository;
-
-    @Override
-    public DashboardResponse getDashboard() {
-
-        return DashboardResponse.builder()
-
-                .totalServers(serverRepository.count())
-
-                .totalSecrets(secretRepository.count())
-
-                .activeSecrets(secretRepository.countByActive(true))
-
-                .inactiveSecrets(secretRepository.countByActive(false))
-
-                .criticalServers(
-                        serverRepository.countByCriticality(
-                                Criticality.CRITICAL))
-
-                .expiringSecrets(
-                        secretRepository.countByExpiryDateBefore(
-                                LocalDate.now().plusDays(30)))
-
-                .build();
-
-    }
-
-}
-...
-
-
-.....
-
-package com.vaultguardian.ai.controller;
-
-import com.vaultguardian.ai.dto.DashboardResponse;
-import com.vaultguardian.ai.service.DashboardService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
-
-@RestController
-@RequestMapping("/api/dashboard")
-@RequiredArgsConstructor
-public class DashboardController {
-
-    private final DashboardService dashboardService;
-
-    @GetMapping
-    public DashboardResponse dashboard() {
-
-        return dashboardService.getDashboard();
-
-    }
+    return dashboardService.getExpiringSecrets();
 
 }
