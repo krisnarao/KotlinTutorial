@@ -1,100 +1,39 @@
-import api from "./api";
+package com.vaultguardian.ai.config;
 
-const API_URL = "/breakglass";
+import java.util.List;
 
-const getAllRequests = () => {
-    return api.get(API_URL);
-};
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-const getRequestById = (id) => {
-    return api.get(`${API_URL}/${id}`);
-};
+@Configuration
+public class CorsConfig {
 
-const createRequest = (request) => {
-    return api.post(API_URL, request);
-};
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
 
-const approveRequest = (id) => {
-    return api.put(`${API_URL}/${id}/approve`);
-};
+        CorsConfiguration configuration = new CorsConfiguration();
 
-const rejectRequest = (id) => {
-    return api.put(`${API_URL}/${id}/reject`);
-};
+        configuration.setAllowedOriginPatterns(List.of("*"));
 
-const deleteRequest = (id) => {
-    return api.delete(`${API_URL}/${id}`);
-};
+        configuration.setAllowedMethods(List.of(
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS"));
 
-export default {
-    getAllRequests,
-    getRequestById,
-    createRequest,
-    approveRequest,
-    rejectRequest,
-    deleteRequest
-};
+        configuration.setAllowedHeaders(List.of("*"));
 
+        configuration.setAllowCredentials(false);
 
-import breakGlassService from "../../services/breakGlassService";
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
 
-const handleSubmit = async () => {
+        source.registerCorsConfiguration("/**", configuration);
 
-    if (
-        !form.serverId ||
-        !form.secretId ||
-        !form.incidentId ||
-        !form.justification
-    ) {
-
-        alert("Please fill all mandatory fields.");
-
-        return;
-
+        return source;
     }
-
-    try {
-
-        console.log("Submitting...", form);
-
-        const response =
-            await breakGlassService.createRequest(form);
-
-        console.log(response.data);
-
-        alert("Break Glass Request Submitted Successfully");
-
-        setForm({
-
-            serverId: "",
-
-            secretId: "",
-
-            incidentId: "",
-
-            duration: "15 Minutes",
-
-            justification: "",
-
-            requestedBy: localStorage.getItem("user") || "admin"
-
-        });
-
-    }
-    catch (error) {
-
-        console.error(error);
-
-        if (error.response) {
-
-            alert(error.response.data.message || "Submission Failed");
-
-        } else {
-
-            alert("Unable to connect to server.");
-
-        }
-
-    }
-
-};
+}
