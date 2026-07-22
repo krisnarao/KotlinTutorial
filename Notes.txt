@@ -1,619 +1,301 @@
-import api from "./api";
-
-const API_URL = "/api/servers";
-
-const getAllServers = async () => {
-  const response = await api.get(API_URL);
-  return response.data;
-};
-
-const getServerById = async (id) => {
-  const response = await api.get(`${API_URL}/${id}`);
-  return response.data;
-};
-
-const createServer = async (server) => {
-  const response = await api.post(API_URL, server);
-  return response.data;
-};
-
-const updateServer = async (id, server) => {
-  const response = await api.put(`${API_URL}/${id}`, server);
-  return response.data;
-};
-
-const deleteServer = async (id) => {
-  await api.delete(`${API_URL}/${id}`);
-};
-
-export default {
-  getAllServers,
-  getServerById,
-  createServer,
-  updateServer,
-  deleteServer,
-};
-
-...
-import {
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  Chip,
-  IconButton,
-  Paper,
-  TableContainer,
-} from "@mui/material";
-
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-
-const getStatusColor = (status) => {
-  switch (status) {
-    case "ACTIVE":
-      return "success";
-    case "DOWN":
-      return "error";
-    case "MAINTENANCE":
-      return "warning";
-    default:
-      return "default";
-  }
-};
-
-const getCriticalityColor = (criticality) => {
-  switch (criticality) {
-    case "CRITICAL":
-      return "error";
-    case "HIGH":
-      return "warning";
-    case "MEDIUM":
-      return "info";
-    default:
-      return "success";
-  }
-};
-
-function ServerTable({ servers, onEdit, onDelete }) {
-  return (
-    <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell><b>Hostname</b></TableCell>
-            <TableCell><b>Application</b></TableCell>
-            <TableCell><b>Environment</b></TableCell>
-            <TableCell><b>Status</b></TableCell>
-            <TableCell><b>Criticality</b></TableCell>
-            <TableCell><b>Owner</b></TableCell>
-            <TableCell><b>IP Address</b></TableCell>
-            <TableCell align="center"><b>Actions</b></TableCell>
-          </TableRow>
-        </TableHead>
-
-        <TableBody>
-          {servers.map((server) => (
-            <TableRow key={server.id} hover>
-              <TableCell>{server.hostname}</TableCell>
-              <TableCell>{server.application}</TableCell>
-              <TableCell>{server.environment}</TableCell>
-
-              <TableCell>
-                <Chip
-                  label={server.status}
-                  color={getStatusColor(server.status)}
-                  size="small"
-                />
-              </TableCell>
-
-              <TableCell>
-                <Chip
-                  label={server.criticality}
-                  color={getCriticalityColor(server.criticality)}
-                  size="small"
-                />
-              </TableCell>
-
-              <TableCell>{server.owner}</TableCell>
-
-              <TableCell>{server.ipAddress}</TableCell>
-
-              <TableCell align="center">
-                <IconButton
-                  color="primary"
-                  onClick={() => onEdit(server)}
-                >
-                  <EditIcon />
-                </IconButton>
-
-                <IconButton
-                  color="error"
-                  onClick={() => onDelete(server.id)}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </TableCell>
-            </TableRow>
-          ))}
-
-          {servers.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={8} align="center">
-                No Servers Found
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  );
-}
-
-export default ServerTable;
-
-
-...
-import { useEffect, useState } from "react";
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Grid,
-  TextField,
-  MenuItem,
-} from "@mui/material";
-
-const environments = [
-  "DEV",
-  "TEST",
-  "UAT",
-  "PROD"
-];
-
-const criticalities = [
-  "LOW",
-  "MEDIUM",
-  "HIGH",
-  "CRITICAL"
-];
-
-const defaultServer = {
-  hostname: "",
-  application: "",
-  environment: "DEV",
-  criticality: "LOW",
-  owner: "",
-  ipAddress: "",
-  operatingSystem: "",
-  location: "",
-};
-
-function ServerDialog({
-  open,
-  server,
-  onClose,
-  onSave,
-}) {
-
-  const [formData, setFormData] = useState(defaultServer);
-
-  useEffect(() => {
-    if (server) {
-      setFormData({
-        ...defaultServer,
-        ...server,
-      });
-    } else {
-      setFormData(defaultServer);
-    }
-  }, [server]);
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleSubmit = () => {
-    onSave(formData);
-  };
-
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-    >
-      <DialogTitle>
-        {server ? "Edit Server" : "Add Server"}
-      </DialogTitle>
-
-      <DialogContent>
-
-        <Grid container spacing={2} sx={{ mt: 1 }}>
-
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              label="Hostname"
-              name="hostname"
-              value={formData.hostname}
-              onChange={handleChange}
-            />
-          </Grid>
-
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              label="Application"
-              name="application"
-              value={formData.application}
-              onChange={handleChange}
-            />
-          </Grid>
-
-          <Grid item xs={6}>
-            <TextField
-              select
-              fullWidth
-              label="Environment"
-              name="environment"
-              value={formData.environment}
-              onChange={handleChange}
-            >
-              {environments.map((item) => (
-                <MenuItem key={item} value={item}>
-                  {item}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-
-          <Grid item xs={6}>
-            <TextField
-              select
-              fullWidth
-              label="Criticality"
-              name="criticality"
-              value={formData.criticality}
-              onChange={handleChange}
-            >
-              {criticalities.map((item) => (
-                <MenuItem key={item} value={item}>
-                  {item}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              label="Owner"
-              name="owner"
-              value={formData.owner}
-              onChange={handleChange}
-            />
-          </Grid>
-
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              label="IP Address"
-              name="ipAddress"
-              value={formData.ipAddress}
-              onChange={handleChange}
-            />
-          </Grid>
-
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              label="Operating System"
-              name="operatingSystem"
-              value={formData.operatingSystem}
-              onChange={handleChange}
-            />
-          </Grid>
-
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              label="Location"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-            />
-          </Grid>
-
-        </Grid>
-
-      </DialogContent>
-
-      <DialogActions>
-
-        <Button onClick={onClose}>
-          Cancel
-        </Button>
-
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-        >
-          Save
-        </Button>
-
-      </DialogActions>
-
-    </Dialog>
-  );
-}
-
-export default ServerDialog;
-
-....
-import { useEffect, useState } from "react";
-import {
-  Box,
-  Container,
-  Typography,
-  Button,
-  TextField,
-  Stack,
-  Snackbar,
-  Alert,
-  CircularProgress,
-  Paper,
-} from "@mui/material";
-
-import AddIcon from "@mui/icons-material/Add";
-import RefreshIcon from "@mui/icons-material/Refresh";
+import { Box, Container, Grid, Typography } from "@mui/material";
 
 import Sidebar from "../components/layout/Sidebar";
 import Header from "../components/layout/Header";
 
-import ServerTable from "../components/server/ServerTable";
-import ServerDialog from "../components/server/ServerDialog";
+import RequestForm from "../components/breakglass/RequestForm";
+import ApprovalCard from "../components/breakglass/ApprovalCard";
+import Timeline from "../components/breakglass/Timeline";
 
-import serverService from "../services/serverService";
-
-function ServerInventory() {
-  const [servers, setServers] = useState([]);
-  const [filteredServers, setFilteredServers] = useState([]);
-
-  const [loading, setLoading] = useState(true);
-
-  const [search, setSearch] = useState("");
-
-  const [dialogOpen, setDialogOpen] = useState(false);
-
-  const [selectedServer, setSelectedServer] = useState(null);
-
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
-
-  useEffect(() => {
-    loadServers();
-  }, []);
-
-  useEffect(() => {
-    filterServers();
-  }, [search, servers]);
-
-  const loadServers = async () => {
-    try {
-      setLoading(true);
-
-      const data = await serverService.getAllServers();
-
-      setServers(data);
-      setFilteredServers(data);
-    } catch (err) {
-      console.error(err);
-
-      showSnackbar("Unable to load servers", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filterServers = () => {
-    const value = search.toLowerCase();
-
-    const filtered = servers.filter((server) => {
-      return (
-        server.hostname?.toLowerCase().includes(value) ||
-        server.application?.toLowerCase().includes(value) ||
-        server.owner?.toLowerCase().includes(value) ||
-        server.ipAddress?.toLowerCase().includes(value)
-      );
-    });
-
-    setFilteredServers(filtered);
-  };
-
-  const showSnackbar = (message, severity) => {
-    setSnackbar({
-      open: true,
-      message,
-      severity,
-    });
-  };
-
-  const handleAdd = () => {
-    setSelectedServer(null);
-    setDialogOpen(true);
-  };
-
-  const handleEdit = (server) => {
-    setSelectedServer(server);
-    setDialogOpen(true);
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this server?")) return;
-
-    try {
-      await serverService.deleteServer(id);
-
-      showSnackbar("Server deleted", "success");
-
-      loadServers();
-    } catch (err) {
-      console.error(err);
-
-      showSnackbar("Delete failed", "error");
-    }
-  };
-
-  const handleSave = async (server) => {
-    try {
-      if (selectedServer) {
-        await serverService.updateServer(selectedServer.id, server);
-
-        showSnackbar("Server updated", "success");
-      } else {
-        await serverService.createServer(server);
-
-        showSnackbar("Server created", "success");
-      }
-
-      setDialogOpen(false);
-
-      loadServers();
-    } catch (err) {
-      console.error(err);
-
-      showSnackbar("Save failed", "error");
-    }
-  };
+function BreakGlass() {
 
   return (
+
     <Box
       sx={{
         display: "flex",
         minHeight: "100vh",
-        bgcolor: "#F5F7FB",
+        bgcolor: "#F5F7FB"
       }}
     >
+
       <Sidebar />
 
-      <Box
-        sx={{
-          flex: 1,
-          p: 4,
-        }}
-      >
+      <Box sx={{ flex: 1, p: 4 }}>
+
         <Header />
 
         <Container maxWidth="xl">
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
+
+          <Typography
+            variant="h4"
+            fontWeight={700}
             mb={4}
           >
-            <Typography
-              variant="h4"
-              fontWeight={700}
-            >
-              Server Inventory
-            </Typography>
+            Emergency Break Glass Access
+          </Typography>
 
-            <Stack direction="row" spacing={2}>
-              <Button
-                variant="outlined"
-                startIcon={<RefreshIcon />}
-                onClick={loadServers}
-              >
-                Refresh
-              </Button>
+          <Grid container spacing={3}>
 
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleAdd}
-              >
-                Add Server
-              </Button>
-            </Stack>
-          </Stack>
+            <Grid item xs={12} md={8}>
+              <RequestForm />
+            </Grid>
 
-          <Paper
-            sx={{
-              p: 3,
-              mb: 3,
-              borderRadius: 3,
-            }}
-          >
-            <TextField
-              fullWidth
-              label="Search hostname, application, owner or IP"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </Paper>
+            <Grid item xs={12} md={4}>
+              <ApprovalCard />
+            </Grid>
 
-          {loading ? (
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "center",
-                mt: 8,
-              }}
-            >
-              <CircularProgress />
-            </Box>
-          ) : (
-            <ServerTable
-              servers={filteredServers}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          )}
+            <Grid item xs={12}>
+              <Timeline />
+            </Grid>
+
+          </Grid>
+
         </Container>
+
       </Box>
 
-      <ServerDialog
-        open={dialogOpen}
-        server={selectedServer}
-        onClose={() => setDialogOpen(false)}
-        onSave={handleSave}
-      />
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() =>
-          setSnackbar({
-            ...snackbar,
-            open: false,
-          })
-        }
-      >
-        <Alert
-          severity={snackbar.severity}
-          variant="filled"
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Box>
+
   );
+
 }
 
-export default ServerInventory;
+export default BreakGlass;
+
+...
+import {
+Card,
+CardContent,
+Typography,
+Chip,
+Button,
+Stack
+} from "@mui/material";
+
+function ApprovalCard(){
+
+return(
+
+<Card sx={{borderRadius:4}}>
+
+<CardContent>
+
+<Typography
+variant="h6"
+fontWeight={700}
+>
+
+AI Risk Assessment
+
+</Typography>
+
+<Stack spacing={2} mt={3}>
+
+<Chip color="success" label="Risk : LOW"/>
+
+<Chip color="info" label="Duration : 30 Minutes"/>
+
+<Chip color="warning" label="Approval Required"/>
+
+</Stack>
+
+<Button
+fullWidth
+variant="contained"
+sx={{mt:4}}
+>
+
+Request Approval
+
+</Button>
+
+</CardContent>
+
+</Card>
+
+)
+
+}
+
+export default ApprovalCard;
+
+...
+import {
+Card,
+CardContent,
+Typography,
+Stepper,
+Step,
+StepLabel
+} from "@mui/material";
+
+const steps=[
+
+"Request Submitted",
+
+"Manager Approval",
+
+"AI Validation",
+
+"Temporary Access",
+
+"Audit Logged"
+
+];
+
+function Timeline(){
+
+return(
+
+<Card sx={{borderRadius:4}}>
+
+<CardContent>
+
+<Typography
+variant="h6"
+fontWeight={700}
+mb={3}
+>
+
+Workflow
+
+</Typography>
+
+<Stepper activeStep={1}>
+
+{steps.map((step)=>(
+
+<Step key={step}>
+
+<StepLabel>
+
+{step}
+
+</StepLabel>
+
+</Step>
+
+))}
+
+</Stepper>
+
+</CardContent>
+
+</Card>
+
+)
+
+}
+
+export default Timeline;
+
 ....
+import {
+Card,
+CardContent,
+Typography,
+Grid,
+TextField,
+MenuItem,
+Button
+} from "@mui/material";
 
-import ServerInventory from "./pages/ServerInventory";
+function RequestForm(){
 
-<Route path="/servers" element={<ServerInventory />} />
+return(
+
+<Card sx={{borderRadius:4}}>
+
+<CardContent>
+
+<Typography
+variant="h6"
+fontWeight={700}
+mb={3}
+>
+
+Emergency Request
+
+</Typography>
+
+<Grid container spacing={2}>
+
+<Grid item xs={6}>
+
+<TextField
+fullWidth
+label="Server"
+/>
+
+</Grid>
+
+<Grid item xs={6}>
+
+<TextField
+fullWidth
+label="Secret"
+/>
+
+</Grid>
+
+<Grid item xs={6}>
+
+<TextField
+select
+fullWidth
+label="Duration"
+defaultValue="30"
+>
+
+<MenuItem value="15">15 Minutes</MenuItem>
+
+<MenuItem value="30">30 Minutes</MenuItem>
+
+<MenuItem value="60">60 Minutes</MenuItem>
+
+</TextField>
+
+</Grid>
+
+<Grid item xs={12}>
+
+<TextField
+fullWidth
+multiline
+rows={4}
+label="Business Justification"
+/>
+
+</Grid>
+
+<Grid item xs={12}>
+
+<Button
+variant="contained"
+size="large"
+fullWidth
+>
+
+Submit Break Glass Request
+
+</Button>
+
+</Grid>
+
+</Grid>
+
+</CardContent>
+
+</Card>
+
+)
+
+}
+
+export default RequestForm;
+
+....
+import BreakGlass from "./pages/BreakGlass";
+
+<Route path="/breakglass" element={<BreakGlass />} />
