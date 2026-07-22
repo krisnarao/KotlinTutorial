@@ -1,301 +1,178 @@
-import { Box, Container, Grid, Typography } from "@mui/material";
+import { useState } from "react";
+import {
+  Card,
+  CardContent,
+  Typography,
+  Grid,
+  TextField,
+  MenuItem,
+  Button,
+  Alert,
+} from "@mui/material";
 
-import Sidebar from "../components/layout/Sidebar";
-import Header from "../components/layout/Header";
+const durations = [15, 30, 60, 120];
 
-import RequestForm from "../components/breakglass/RequestForm";
-import ApprovalCard from "../components/breakglass/ApprovalCard";
-import Timeline from "../components/breakglass/Timeline";
+function RequestForm() {
+  const [form, setForm] = useState({
+    serverId: "",
+    secretId: "",
+    incidentId: "",
+    duration: 30,
+    justification: "",
+    requestedBy: "admin",
+  });
 
-function BreakGlass() {
+  // Temporary data (replace with API data later)
+  const servers = [
+    { id: 1, hostname: "APP-PROD-01" },
+    { id: 2, hostname: "DB-PROD-01" },
+    { id: 3, hostname: "API-PROD-01" },
+  ];
+
+  const secrets = [
+    { id: 1, name: "DB_PASSWORD" },
+    { id: 2, name: "JWT_KEY" },
+    { id: 3, name: "TLS_CERTIFICATE" },
+  ];
+
+  const handleChange = (e) => {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const submit = () => {
+    console.log(form);
+    // TODO: call BreakGlass API
+  };
 
   return (
+    <Card sx={{ borderRadius: 4 }}>
+      <CardContent>
 
-    <Box
-      sx={{
-        display: "flex",
-        minHeight: "100vh",
-        bgcolor: "#F5F7FB"
-      }}
-    >
+        <Typography variant="h5" fontWeight="bold" gutterBottom>
+          Emergency Break Glass Request
+        </Typography>
 
-      <Sidebar />
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          Emergency access is fully audited and time limited.
+        </Alert>
 
-      <Box sx={{ flex: 1, p: 4 }}>
+        <Grid container spacing={2}>
 
-        <Header />
-
-        <Container maxWidth="xl">
-
-          <Typography
-            variant="h4"
-            fontWeight={700}
-            mb={4}
-          >
-            Emergency Break Glass Access
-          </Typography>
-
-          <Grid container spacing={3}>
-
-            <Grid item xs={12} md={8}>
-              <RequestForm />
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <ApprovalCard />
-            </Grid>
-
-            <Grid item xs={12}>
-              <Timeline />
-            </Grid>
-
+          <Grid item xs={12} md={6}>
+            <TextField
+              select
+              fullWidth
+              label="Server"
+              name="serverId"
+              value={form.serverId}
+              onChange={handleChange}
+            >
+              {servers.map((server) => (
+                <MenuItem
+                  key={server.id}
+                  value={server.id}
+                >
+                  {server.hostname}
+                </MenuItem>
+              ))}
+            </TextField>
           </Grid>
 
-        </Container>
+          <Grid item xs={12} md={6}>
+            <TextField
+              select
+              fullWidth
+              label="Secret"
+              name="secretId"
+              value={form.secretId}
+              onChange={handleChange}
+            >
+              {secrets.map((secret) => (
+                <MenuItem
+                  key={secret.id}
+                  value={secret.id}
+                >
+                  {secret.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
 
-      </Box>
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Incident ID"
+              name="incidentId"
+              placeholder="INC-2026-10021"
+              value={form.incidentId}
+              onChange={handleChange}
+            />
+          </Grid>
 
-    </Box>
+          <Grid item xs={12} md={6}>
+            <TextField
+              select
+              fullWidth
+              label="Access Duration"
+              name="duration"
+              value={form.duration}
+              onChange={handleChange}
+            >
+              {durations.map((d) => (
+                <MenuItem key={d} value={d}>
+                  {d} Minutes
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
 
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Business Justification"
+              multiline
+              rows={4}
+              name="justification"
+              value={form.justification}
+              onChange={handleChange}
+              placeholder="Explain why emergency access is required..."
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Requested By"
+              value={form.requestedBy}
+              InputProps={{
+                readOnly: true,
+              }}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <Button
+              variant="contained"
+              size="large"
+              fullWidth
+              onClick={submit}
+              sx={{
+                height: 50,
+                fontWeight: "bold",
+              }}
+            >
+              Submit Break Glass Request
+            </Button>
+          </Grid>
+
+        </Grid>
+
+      </CardContent>
+    </Card>
   );
-
-}
-
-export default BreakGlass;
-
-...
-import {
-Card,
-CardContent,
-Typography,
-Chip,
-Button,
-Stack
-} from "@mui/material";
-
-function ApprovalCard(){
-
-return(
-
-<Card sx={{borderRadius:4}}>
-
-<CardContent>
-
-<Typography
-variant="h6"
-fontWeight={700}
->
-
-AI Risk Assessment
-
-</Typography>
-
-<Stack spacing={2} mt={3}>
-
-<Chip color="success" label="Risk : LOW"/>
-
-<Chip color="info" label="Duration : 30 Minutes"/>
-
-<Chip color="warning" label="Approval Required"/>
-
-</Stack>
-
-<Button
-fullWidth
-variant="contained"
-sx={{mt:4}}
->
-
-Request Approval
-
-</Button>
-
-</CardContent>
-
-</Card>
-
-)
-
-}
-
-export default ApprovalCard;
-
-...
-import {
-Card,
-CardContent,
-Typography,
-Stepper,
-Step,
-StepLabel
-} from "@mui/material";
-
-const steps=[
-
-"Request Submitted",
-
-"Manager Approval",
-
-"AI Validation",
-
-"Temporary Access",
-
-"Audit Logged"
-
-];
-
-function Timeline(){
-
-return(
-
-<Card sx={{borderRadius:4}}>
-
-<CardContent>
-
-<Typography
-variant="h6"
-fontWeight={700}
-mb={3}
->
-
-Workflow
-
-</Typography>
-
-<Stepper activeStep={1}>
-
-{steps.map((step)=>(
-
-<Step key={step}>
-
-<StepLabel>
-
-{step}
-
-</StepLabel>
-
-</Step>
-
-))}
-
-</Stepper>
-
-</CardContent>
-
-</Card>
-
-)
-
-}
-
-export default Timeline;
-
-....
-import {
-Card,
-CardContent,
-Typography,
-Grid,
-TextField,
-MenuItem,
-Button
-} from "@mui/material";
-
-function RequestForm(){
-
-return(
-
-<Card sx={{borderRadius:4}}>
-
-<CardContent>
-
-<Typography
-variant="h6"
-fontWeight={700}
-mb={3}
->
-
-Emergency Request
-
-</Typography>
-
-<Grid container spacing={2}>
-
-<Grid item xs={6}>
-
-<TextField
-fullWidth
-label="Server"
-/>
-
-</Grid>
-
-<Grid item xs={6}>
-
-<TextField
-fullWidth
-label="Secret"
-/>
-
-</Grid>
-
-<Grid item xs={6}>
-
-<TextField
-select
-fullWidth
-label="Duration"
-defaultValue="30"
->
-
-<MenuItem value="15">15 Minutes</MenuItem>
-
-<MenuItem value="30">30 Minutes</MenuItem>
-
-<MenuItem value="60">60 Minutes</MenuItem>
-
-</TextField>
-
-</Grid>
-
-<Grid item xs={12}>
-
-<TextField
-fullWidth
-multiline
-rows={4}
-label="Business Justification"
-/>
-
-</Grid>
-
-<Grid item xs={12}>
-
-<Button
-variant="contained"
-size="large"
-fullWidth
->
-
-Submit Break Glass Request
-
-</Button>
-
-</Grid>
-
-</Grid>
-
-</CardContent>
-
-</Card>
-
-)
-
 }
 
 export default RequestForm;
-
-....
-import BreakGlass from "./pages/BreakGlass";
-
-<Route path="/breakglass" element={<BreakGlass />} />
