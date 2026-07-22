@@ -1,917 +1,1092 @@
-import { useState } from "react";
+import { useMemo } from "react";
+
 import {
-  Box,
-  Container,
-  Grid,
-  Typography,
-} from "@mui/material";
-
-import Sidebar from "../components/layout/Sidebar";
-import Header from "../components/layout/Header";
-
-import ApprovalTable from "../components/approval/ApprovalTable";
-import ApprovalDetails from "../components/approval/ApprovalDetails";
-import AIRecommendationCard from "../components/approval/AIRecommendationCard";
-
-const sampleRequests = [
-  {
-    id: "BG-101",
-    incidentId: "INC-2026-1001",
-    requester: "admin",
-    server: "APP-PROD-01",
-    environment: "PRODUCTION",
-    secret: "DB_PASSWORD",
-    duration: "30 Minutes",
-    criticality: "CRITICAL",
-    risk: "HIGH",
-    status: "Pending",
-    justification: "Production outage due to DB connectivity failure."
-  },
-  {
-    id: "BG-102",
-    incidentId: "INC-2026-1002",
-    requester: "srelead",
-    server: "API-PROD-01",
-    environment: "PRODUCTION",
-    secret: "JWT_KEY",
-    duration: "15 Minutes",
-    criticality: "HIGH",
-    risk: "MEDIUM",
-    status: "Pending",
-    justification: "Emergency API deployment."
-  }
-];
-
-function ApprovalPage() {
-
-  const [selectedRequest, setSelectedRequest] = useState(sampleRequests[0]);
-
-  return (
-
-    <Box
-      sx={{
-        display: "flex",
-        minHeight: "100vh",
-        bgcolor: "#F5F7FB"
-      }}
-    >
-
-      <Sidebar />
-
-      <Box sx={{ flex: 1, p: 3 }}>
-
-        <Header />
-
-        <Container maxWidth="xl">
-
-          <Typography
-            variant="h4"
-            fontWeight={700}
-            mb={3}
-          >
-            Break Glass Approvals
-          </Typography>
-
-          <Grid container spacing={3}>
-
-            <Grid item xs={12}>
-              <ApprovalTable
-                requests={sampleRequests}
-                onSelect={setSelectedRequest}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={7}>
-              <ApprovalDetails
-                request={selectedRequest}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={5}>
-              <AIRecommendationCard
-                request={selectedRequest}
-              />
-            </Grid>
-
-          </Grid>
-
-        </Container>
-
-      </Box>
-
-    </Box>
-
-  );
-
-}
-
-export default ApprovalPage;
-
-...
-import {
-  Card,
-  CardContent,
-  Typography,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  Chip,
-  Paper,
-} from "@mui/material";
-
-function getRiskColor(risk) {
-  switch (risk) {
-    case "LOW":
-      return "success";
-    case "MEDIUM":
-      return "warning";
-    case "HIGH":
-      return "error";
-    case "CRITICAL":
-      return "error";
-    default:
-      return "default";
-  }
-}
-
-function getStatusColor(status) {
-  switch (status) {
-    case "Pending":
-      return "warning";
-    case "Approved":
-      return "success";
-    case "Rejected":
-      return "error";
-    default:
-      return "default";
-  }
-}
-
-function ApprovalTable({ requests, onSelect }) {
-  return (
-    <Card sx={{ borderRadius: 4 }}>
-      <CardContent>
-
-        <Typography
-          variant="h6"
-          fontWeight="bold"
-          mb={2}
-        >
-          Pending Approval Requests
-        </Typography>
-
-        <Paper elevation={0}>
-
-          <Table>
-
-            <TableHead>
-
-              <TableRow
-                sx={{
-                  backgroundColor: "#f5f5f5",
-                }}
-              >
-                <TableCell><b>Request ID</b></TableCell>
-
-                <TableCell><b>Requester</b></TableCell>
-
-                <TableCell><b>Server</b></TableCell>
-
-                <TableCell><b>Secret</b></TableCell>
-
-                <TableCell align="center">
-                  <b>Risk</b>
-                </TableCell>
-
-                <TableCell align="center">
-                  <b>Status</b>
-                </TableCell>
-
-              </TableRow>
-
-            </TableHead>
-
-            <TableBody>
-
-              {requests.map((request) => (
-
-                <TableRow
-                  hover
-                  key={request.id}
-                  onClick={() => onSelect(request)}
-                  sx={{
-                    cursor: "pointer",
-                  }}
-                >
-
-                  <TableCell>
-                    {request.id}
-                  </TableCell>
-
-                  <TableCell>
-                    {request.requester}
-                  </TableCell>
-
-                  <TableCell>
-                    {request.server}
-                  </TableCell>
-
-                  <TableCell>
-                    {request.secret}
-                  </TableCell>
-
-                  <TableCell align="center">
-
-                    <Chip
-                      label={request.risk}
-                      color={getRiskColor(request.risk)}
-                      size="small"
-                    />
-
-                  </TableCell>
-
-                  <TableCell align="center">
-
-                    <Chip
-                      label={request.status}
-                      color={getStatusColor(request.status)}
-                      size="small"
-                    />
-
-                  </TableCell>
-
-                </TableRow>
-
-              ))}
-
-            </TableBody>
-
-          </Table>
-
-        </Paper>
-
-      </CardContent>
-
-    </Card>
-  );
-}
-
-export default ApprovalTable;
-
-....
-import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  Typography,
-  Grid,
-  TextField,
-  Button,
-  Stack,
-  Chip,
-  Divider,
-  Snackbar,
   Alert,
-} from "@mui/material";
-
-function ApprovalDetails({ request }) {
-
-  const [comments, setComments] = useState("");
-
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
-
-  if (!request) {
-    return (
-      <Card sx={{ borderRadius: 4 }}>
-        <CardContent>
-          <Typography>Select a request</Typography>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const approve = () => {
-    setSnackbar({
-      open: true,
-      message: "Request Approved Successfully",
-      severity: "success",
-    });
-  };
-
-  const reject = () => {
-    setSnackbar({
-      open: true,
-      message: "Request Rejected",
-      severity: "error",
-    });
-  };
-
-  const escalate = () => {
-    setSnackbar({
-      open: true,
-      message: "Escalated to Security Team",
-      severity: "warning",
-    });
-  };
-
-  return (
-    <>
-      <Card sx={{ borderRadius: 4 }}>
-
-        <CardContent>
-
-          <Typography
-            variant="h6"
-            fontWeight="bold"
-            gutterBottom
-          >
-            Request Details
-          </Typography>
-
-          <Divider sx={{ mb: 3 }} />
-
-          <Grid container spacing={2}>
-
-            <Grid item xs={6}>
-              <Typography variant="caption">
-                Request ID
-              </Typography>
-              <Typography fontWeight="bold">
-                {request.id}
-              </Typography>
-            </Grid>
-
-            <Grid item xs={6}>
-              <Typography variant="caption">
-                Incident ID
-              </Typography>
-              <Typography fontWeight="bold">
-                {request.incidentId}
-              </Typography>
-            </Grid>
-
-            <Grid item xs={6}>
-              <Typography variant="caption">
-                Requested By
-              </Typography>
-              <Typography>
-                {request.requester}
-              </Typography>
-            </Grid>
-
-            <Grid item xs={6}>
-              <Typography variant="caption">
-                Environment
-              </Typography>
-
-              <Chip
-                label={request.environment}
-                color="error"
-                size="small"
-              />
-            </Grid>
-
-            <Grid item xs={6}>
-              <Typography variant="caption">
-                Server
-              </Typography>
-              <Typography>
-                {request.server}
-              </Typography>
-            </Grid>
-
-            <Grid item xs={6}>
-              <Typography variant="caption">
-                Secret
-              </Typography>
-              <Typography>
-                {request.secret}
-              </Typography>
-            </Grid>
-
-            <Grid item xs={6}>
-              <Typography variant="caption">
-                Duration
-              </Typography>
-              <Typography>
-                {request.duration}
-              </Typography>
-            </Grid>
-
-            <Grid item xs={6}>
-              <Typography variant="caption">
-                Criticality
-              </Typography>
-
-              <Chip
-                label={request.criticality}
-                color="error"
-                size="small"
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <Typography variant="caption">
-                Business Justification
-              </Typography>
-
-              <Typography sx={{ mt: 1 }}>
-                {request.justification}
-              </Typography>
-            </Grid>
-
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                rows={4}
-                label="Approver Comments"
-                value={comments}
-                onChange={(e) =>
-                  setComments(e.target.value)
-                }
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-
-              <Stack
-                direction="row"
-                spacing={2}
-              >
-
-                <Button
-                  variant="contained"
-                  color="success"
-                  fullWidth
-                  onClick={approve}
-                >
-                  Approve
-                </Button>
-
-                <Button
-                  variant="contained"
-                  color="error"
-                  fullWidth
-                  onClick={reject}
-                >
-                  Reject
-                </Button>
-
-                <Button
-                  variant="outlined"
-                  color="warning"
-                  fullWidth
-                  onClick={escalate}
-                >
-                  Escalate
-                </Button>
-
-              </Stack>
-
-            </Grid>
-
-          </Grid>
-
-        </CardContent>
-
-      </Card>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() =>
-          setSnackbar({
-            ...snackbar,
-            open: false,
-          })
-        }
-      >
-        <Alert severity={snackbar.severity}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </>
-  );
-}
-
-export default ApprovalDetails;
-
-....
-import {
+  Box,
+  Button,
   Card,
   CardContent,
-  Typography,
-  Divider,
-  Box,
-  LinearProgress,
   Chip,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Button,
+  Divider,
+  Grid,
+  LinearProgress,
+  Stack,
+  Typography,
 } from "@mui/material";
 
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import SecurityIcon from "@mui/icons-material/Security";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
+import SecurityIcon from "@mui/icons-material/Security";
+import ShieldIcon from "@mui/icons-material/Shield";
+import InsightsIcon from "@mui/icons-material/Insights";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+
+import { calculateRisk } from "../../utils/aiRecommendationEngine";
 
 function AIRecommendationCard({ request }) {
 
-  if (!request) {
+    const ai = useMemo(() => {
+
+        if (!request) return null;
+
+        return calculateRisk(request);
+
+    }, [request]);
+
+    if (!request || !ai) {
+
+        return (
+
+            <Card sx={{ borderRadius: 4 }}>
+
+                <CardContent>
+
+                    <Typography
+                        variant="h6"
+                        align="center"
+                        color="text.secondary"
+                    >
+
+                        Select a Break Glass request to view AI recommendation
+
+                    </Typography>
+
+                </CardContent>
+
+            </Card>
+
+        );
+
+    }
+
+    const riskColor = (() => {
+
+        switch (ai.risk) {
+
+            case "CRITICAL":
+                return "error";
+
+            case "HIGH":
+                return "warning";
+
+            case "MEDIUM":
+                return "info";
+
+            default:
+                return "success";
+
+        }
+
+    })();
+
+    const decisionSeverity = (() => {
+
+        switch (ai.risk) {
+
+            case "CRITICAL":
+                return "error";
+
+            case "HIGH":
+                return "warning";
+
+            case "MEDIUM":
+                return "info";
+
+            default:
+                return "success";
+
+        }
+
+    })();
+
     return (
-      <Card sx={{ borderRadius: 4 }}>
-        <CardContent>
-          <Typography>No Request Selected</Typography>
-        </CardContent>
-      </Card>
+
+        <Card
+            elevation={4}
+            sx={{
+                borderRadius:4
+            }}
+        >
+
+            <CardContent>
+
+                <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    mb={2}
+                >
+
+                    <SmartToyIcon color="primary"/>
+
+                    <Typography
+                        variant="h5"
+                        fontWeight="bold"
+                    >
+
+                        VaultGuardian AI Decision Engine
+
+                    </Typography>
+
+                </Stack>
+
+                <Alert
+                    severity={decisionSeverity}
+                    sx={{ mb:3 }}
+                >
+
+                    <b>{ai.recommendation}</b>
+
+                </Alert>
+
+                <Divider sx={{ mb:3 }}/>
+
+                <Grid container spacing={3}>
+
+                    <Grid item xs={12} md={6}>
+
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                        >
+
+                            Overall Risk Score
+
+                        </Typography>
+
+                        <Typography
+                            variant="h2"
+                            fontWeight="bold"
+                            color={`${riskColor}.main`}
+                        >
+
+                            {ai.score}
+
+                        </Typography>
+
+                        <LinearProgress
+                            variant="determinate"
+                            value={ai.score}
+                            color={riskColor}
+                            sx={{
+                                mt:2,
+                                height:12,
+                                borderRadius:6
+                            }}
+                        />
+
+                        <Stack
+                            direction="row"
+                            spacing={2}
+                            mt={2}
+                            alignItems="center"
+                        >
+
+                            <Chip
+                                label={ai.risk}
+                                color={riskColor}
+                            />
+
+                            <Chip
+                                icon={<TrendingUpIcon />}
+                                label={`${ai.confidence}% Confidence`}
+                                color="primary"
+                                variant="outlined"
+                            />
+
+                        </Stack>
+
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+
+                        <Card
+                            variant="outlined"
+                            sx={{
+                                height:"100%",
+                                borderRadius:3
+                            }}
+                        >
+
+                            <CardContent>
+
+                                <Stack
+                                    direction="row"
+                                    spacing={1}
+                                    alignItems="center"
+                                    mb={2}
+                                >
+
+                                    <ShieldIcon color="primary"/>
+
+                                    <Typography
+                                        variant="h6"
+                                        fontWeight="bold"
+                                    >
+
+                                        AI Decision
+
+                                    </Typography>
+
+                                </Stack>
+
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                >
+
+                                    Recommended Approval Path
+
+                                </Typography>
+
+                                <Typography
+                                    variant="h5"
+                                    mt={1}
+                                    fontWeight="bold"
+                                >
+
+                                    {ai.recommendation}
+
+                                </Typography>
+
+                                <Divider sx={{ my:2 }}/>
+
+                                <Stack spacing={1}>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography color="text.secondary">
+
+                                            Environment
+
+                                        </Typography>
+
+                                        <Chip
+                                            label={request.environment}
+                                            color={
+                                                request.environment === "PRODUCTION"
+                                                ? "error"
+                                                : "success"
+                                            }
+                                            size="small"
+                                        />
+
+                                    </Box>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography color="text.secondary">
+
+                                            Criticality
+
+                                        </Typography>
+
+                                        <Chip
+                                            label={request.criticality}
+                                            color="warning"
+                                            size="small"
+                                        />
+
+                                    </Box>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography color="text.secondary">
+
+                                            Requested Duration
+
+                                        </Typography>
+
+                                        <Typography fontWeight="bold">
+
+                                            {request.duration}
+
+                                        </Typography>
+
+                                    </Box>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography color="text.secondary">
+
+                                            Incident
+
+                                        </Typography>
+
+                                        <Chip
+                                            icon={<CheckCircleIcon />}
+                                            label="Validated"
+                                            color="success"
+                                            size="small"
+                                        />
+
+                                    </Box>
+
+                                </Stack>
+
+                            </CardContent>
+
+                        </Card>
+
+                    </Grid>
+                    <Grid item xs={12}>
+
+                        <Card
+                            variant="outlined"
+                            sx={{ borderRadius: 3 }}
+                        >
+
+                            <CardContent>
+
+                                <Stack
+                                    direction="row"
+                                    spacing={1}
+                                    alignItems="center"
+                                    mb={2}
+                                >
+
+                                    <InsightsIcon color="primary" />
+
+                                    <Typography
+                                        variant="h6"
+                                        fontWeight="bold"
+                                    >
+
+                                        Explainable AI
+
+                                    </Typography>
+
+                                </Stack>
+
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    mb={2}
+                                >
+
+                                    Why did VaultGuardian AI arrive at this decision?
+
+                                </Typography>
+
+                                <Stack spacing={2}>
+
+                                    {ai.reasons.map((reason, index) => (
+
+                                        <Box
+                                            key={index}
+                                            display="flex"
+                                            justifyContent="space-between"
+                                            alignItems="center"
+                                            sx={{
+                                                p: 1.5,
+                                                borderRadius: 2,
+                                                backgroundColor: "#fafafa"
+                                            }}
+                                        >
+
+                                            <Stack
+                                                direction="row"
+                                                spacing={1}
+                                                alignItems="center"
+                                            >
+
+                                                <CheckCircleIcon
+                                                    color="success"
+                                                    fontSize="small"
+                                                />
+
+                                                <Typography>
+
+                                                    {reason}
+
+                                                </Typography>
+
+                                            </Stack>
+
+                                            <Chip
+                                                label="Verified"
+                                                color="success"
+                                                size="small"
+                                            />
+
+                                        </Box>
+
+                                    ))}
+
+                                </Stack>
+
+                            </CardContent>
+
+                        </Card>
+
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+
+                        <Card
+                            variant="outlined"
+                            sx={{ borderRadius: 3 }}
+                        >
+
+                            <CardContent>
+
+                                <Stack
+                                    direction="row"
+                                    spacing={1}
+                                    alignItems="center"
+                                    mb={2}
+                                >
+
+                                    <SecurityIcon color="warning"/>
+
+                                    <Typography
+                                        variant="h6"
+                                        fontWeight="bold"
+                                    >
+
+                                        Business Impact
+
+                                    </Typography>
+
+                                </Stack>
+
+                                <Stack spacing={2}>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography color="text.secondary">
+
+                                            Application
+
+                                        </Typography>
+
+                                        <Typography fontWeight="bold">
+
+                                            {request.server}
+
+                                        </Typography>
+
+                                    </Box>
+
+                                    <Divider/>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography color="text.secondary">
+
+                                            Business Impact
+
+                                        </Typography>
+
+                                        <Chip
+                                            label={ai.impact}
+                                            color="warning"
+                                        />
+
+                                    </Box>
+
+                                    <Divider/>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography color="text.secondary">
+
+                                            Secret
+
+                                        </Typography>
+
+                                        <Typography fontWeight="bold">
+
+                                            {request.secret}
+
+                                        </Typography>
+
+                                    </Box>
+
+                                    <Divider/>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography color="text.secondary">
+
+                                            Environment
+
+                                        </Typography>
+
+                                        <Typography fontWeight="bold">
+
+                                            {request.environment}
+
+                                        </Typography>
+
+                                    </Box>
+
+                                    <Divider/>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography color="text.secondary">
+
+                                            Blast Radius
+
+                                        </Typography>
+
+                                        <Chip
+                                            label={
+                                                request.environment === "PRODUCTION"
+                                                    ? "HIGH"
+                                                    : "LOW"
+                                            }
+                                            color={
+                                                request.environment === "PRODUCTION"
+                                                    ? "error"
+                                                    : "success"
+                                            }
+                                        />
+
+                                    </Box>
+
+                                </Stack>
+
+                            </CardContent>
+
+                        </Card>
+
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+
+                        <Card
+                            variant="outlined"
+                            sx={{ borderRadius:3 }}
+                        >
+
+                            <CardContent>
+
+                                <Typography
+                                    variant="h6"
+                                    fontWeight="bold"
+                                    gutterBottom
+                                >
+
+                                    Historical Intelligence
+
+                                </Typography>
+
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    mb={3}
+                                >
+
+                                    AI insights from previous Break Glass approvals
+
+                                </Typography>
+
+                                <Stack spacing={2}>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography>
+
+                                            Similar Requests
+
+                                        </Typography>
+
+                                        <Chip
+                                            label="18"
+                                            color="primary"
+                                        />
+
+                                    </Box>
+
+                                    <Divider/>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography>
+
+                                            Approved
+
+                                        </Typography>
+
+                                        <Chip
+                                            label="17"
+                                            color="success"
+                                        />
+
+                                    </Box>
+
+                                    <Divider/>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography>
+
+                                            Rejected
+
+                                        </Typography>
+
+                                        <Chip
+                                            label="1"
+                                            color="error"
+                                        />
+
+                                    </Box>
+
+                                    <Divider/>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography>
+
+                                            Average Access Time
+
+                                        </Typography>
+
+                                        <Typography
+                                            fontWeight="bold"
+                                        >
+
+                                            28 Minutes
+
+                                        </Typography>
+
+                                    </Box>
+
+                                    <Divider/>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography>
+
+                                            Policy Compliance
+
+                                        </Typography>
+
+                                        <Chip
+                                            label="96%"
+                                            color="success"
+                                        />
+
+                                    </Box>
+
+                                </Stack>
+
+                            </CardContent>
+
+                        </Card>
+
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+
+                        <Card
+                            variant="outlined"
+                            sx={{ borderRadius:3 }}
+                        >
+
+                            <CardContent>
+
+                                <Stack
+                                    direction="row"
+                                    spacing={1}
+                                    alignItems="center"
+                                    mb={2}
+                                >
+
+                                    <SecurityIcon color="primary"/>
+
+                                    <Typography
+                                        variant="h6"
+                                        fontWeight="bold"
+                                    >
+
+                                        Mandatory Security Controls
+
+                                    </Typography>
+
+                                </Stack>
+
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    mb={2}
+                                >
+
+                                    Controls automatically recommended by VaultGuardian AI
+
+                                </Typography>
+
+                                <Stack spacing={2}>
+
+                                    {ai.controls.map((control,index)=>(
+
+                                        <Alert
+                                            key={index}
+                                            severity="info"
+                                            variant="outlined"
+                                        >
+
+                                            {control}
+
+                                        </Alert>
+
+                                    ))}
+
+                                    <Alert severity="success">
+
+                                        MFA Verification Required
+
+                                    </Alert>
+
+                                    <Alert severity="success">
+
+                                        Audit Logging Enabled
+
+                                    </Alert>
+
+                                    <Alert severity="success">
+
+                                        Credential Auto Expiry Enabled
+
+                                    </Alert>
+
+                                </Stack>
+
+                            </CardContent>
+
+                        </Card>
+
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+
+                        <Card
+                            variant="outlined"
+                            sx={{ borderRadius:3 }}
+                        >
+
+                            <CardContent>
+
+                                <Stack
+                                    direction="row"
+                                    spacing={1}
+                                    alignItems="center"
+                                    mb={2}
+                                >
+
+                                    <SmartToyIcon color="primary"/>
+
+                                    <Typography
+                                        variant="h6"
+                                        fontWeight="bold"
+                                    >
+
+                                        AI Generated Summary
+
+                                    </Typography>
+
+                                </Stack>
+
+                                <Box
+
+                                    sx={{
+                                        background:"#f8f9fa",
+                                        p:3,
+                                        borderRadius:2,
+                                        border:"1px solid #e0e0e0"
+                                    }}
+
+                                >
+
+                                    <Typography
+                                        lineHeight={1.8}
+                                    >
+
+                                        {ai.summary}
+
+                                    </Typography>
+
+                                </Box>
+
+                            </CardContent>
+
+                        </Card>
+
+                    </Grid>
+
+                    <Grid item xs={12}>
+
+                        <Card
+                            variant="outlined"
+                            sx={{ borderRadius:3 }}
+                        >
+
+                            <CardContent>
+
+                                <Typography
+                                    variant="h6"
+                                    fontWeight="bold"
+                                    gutterBottom
+                                >
+
+                                    AI Suggested Approval Comment
+
+                                </Typography>
+
+                                <Typography
+                                    color="text.secondary"
+                                    mb={3}
+                                >
+
+                                    Approver can directly use this recommendation.
+
+                                </Typography>
+
+                                <Alert
+                                    severity="success"
+                                    sx={{mb:2}}
+                                >
+
+                                    This request has been analysed against organisational
+                                    security policies.
+
+                                    The incident reference is valid.
+
+                                    Temporary privileged access can be granted following
+                                    the mandatory security controls recommended above.
+
+                                    Session activity must be audited and credentials
+                                    rotated immediately after expiry.
+
+                                </Alert>
+
+                                <Stack
+                                    direction="row"
+                                    spacing={2}
+                                >
+
+                                    <Button
+                                        variant="contained"
+                                    >
+
+                                        Use AI Comment
+
+                                    </Button>
+
+                                    <Button
+                                        variant="outlined"
+                                    >
+
+                                        Copy
+
+                                    </Button>
+
+                                </Stack>
+
+                            </CardContent>
+
+                        </Card>
+
+                    </Grid>
+
+                    <Grid item xs={12}>
+
+                        <Card
+                            variant="outlined"
+                            sx={{ borderRadius:3 }}
+                        >
+
+                            <CardContent>
+
+                                <Typography
+                                    variant="h6"
+                                    fontWeight="bold"
+                                    gutterBottom
+                                >
+
+                                    AI Risk Breakdown
+
+                                </Typography>
+
+                                <Typography
+                                    color="text.secondary"
+                                    mb={3}
+                                >
+
+                                    Explainable scoring model
+
+                                </Typography>
+
+                                <Stack spacing={2}>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography>
+
+                                            Production Environment
+
+                                        </Typography>
+
+                                        <Chip
+                                            label="+30"
+                                            color={
+                                                request.environment==="PRODUCTION"
+                                                ? "error"
+                                                : "success"
+                                            }
+                                        />
+
+                                    </Box>
+
+                                    <Divider/>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography>
+
+                                            Server Criticality
+
+                                        </Typography>
+
+                                        <Chip
+                                            label="+30"
+                                            color="warning"
+                                        />
+
+                                    </Box>
+
+                                    <Divider/>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography>
+
+                                            Privileged Secret
+
+                                        </Typography>
+
+                                        <Chip
+                                            label="+20"
+                                            color="warning"
+                                        />
+
+                                    </Box>
+
+                                    <Divider/>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography>
+
+                                            Incident Validated
+
+                                        </Typography>
+
+                                        <Chip
+                                            label="-5"
+                                            color="success"
+                                        />
+
+                                    </Box>
+
+                                    <Divider/>
+
+                                    <Box display="flex" justifyContent="space-between">
+
+                                        <Typography
+                                            variant="h6"
+                                            fontWeight="bold"
+                                        >
+
+                                            Final Risk Score
+
+                                        </Typography>
+
+                                        <Chip
+                                            label={`${ai.score}/100`}
+                                            color={
+                                                ai.risk==="CRITICAL"
+                                                ? "error"
+                                                : ai.risk==="HIGH"
+                                                ? "warning"
+                                                : "success"
+                                            }
+                                        />
+
+                                    </Box>
+
+                                </Stack>
+
+                            </CardContent>
+
+                        </Card>
+
+                    </Grid>
+                    <Grid item xs={12}>
+
+                        <Divider sx={{ my: 2 }} />
+
+                        <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={2}
+                            justifyContent="flex-end"
+                        >
+
+                            <Button
+                                variant="outlined"
+                                color="info"
+                                startIcon={<InsightsIcon />}
+                                onClick={() =>
+                                    alert("Audit timeline will be available in the next version.")
+                                }
+                            >
+                                View Audit Trail
+                            </Button>
+
+                            <Button
+                                variant="outlined"
+                                color="warning"
+                                startIcon={<SecurityIcon />}
+                                onClick={() =>
+                                    alert("Request escalated to Security Team.")
+                                }
+                            >
+                                Escalate
+                            </Button>
+
+                            <Button
+                                variant="outlined"
+                                color="error"
+                                onClick={() =>
+                                    alert("Break Glass request rejected.")
+                                }
+                            >
+                                Reject
+                            </Button>
+
+                            <Button
+                                variant="contained"
+                                color="success"
+                                onClick={() =>
+                                    alert("Break Glass request approved successfully.")
+                                }
+                            >
+                                Approve
+                            </Button>
+
+                        </Stack>
+
+                    </Grid>
+
+                </Grid>
+
+            </CardContent>
+
+        </Card>
+
     );
-  }
 
-  let score = 0;
-
-  if (request.environment === "PRODUCTION") score += 30;
-
-  if (request.criticality === "CRITICAL") score += 30;
-
-  if (request.secret.includes("PASSWORD")) score += 20;
-
-  if (request.duration.includes("60")) score += 10;
-
-  if (score > 100) score = 100;
-
-  let risk = "LOW";
-  let color = "success";
-  let recommendation = "Auto Approve";
-
-  if (score >= 80) {
-    risk = "CRITICAL";
-    color = "error";
-    recommendation = "Security Approval Required";
-  } else if (score >= 60) {
-    risk = "HIGH";
-    color = "error";
-    recommendation = "Manager Approval Required";
-  } else if (score >= 40) {
-    risk = "MEDIUM";
-    color = "warning";
-    recommendation = "Manual Review";
-  }
-
-  return (
-    <Card sx={{ borderRadius: 4 }}>
-
-      <CardContent>
-
-        <Box
-          display="flex"
-          alignItems="center"
-          mb={2}
-        >
-          <SmartToyIcon
-            color="primary"
-            sx={{ mr: 1 }}
-          />
-
-          <Typography
-            variant="h6"
-            fontWeight="bold"
-          >
-            AI Recommendation
-          </Typography>
-
-        </Box>
-
-        <Divider sx={{ mb: 3 }} />
-
-        <Typography
-          variant="body2"
-          color="text.secondary"
-        >
-          Overall Risk Score
-        </Typography>
-
-        <Typography
-          variant="h3"
-          fontWeight="bold"
-        >
-          {score}
-        </Typography>
-
-        <LinearProgress
-          variant="determinate"
-          value={score}
-          color={color}
-          sx={{
-            height: 10,
-            borderRadius: 5,
-            mt: 1,
-            mb: 3,
-          }}
-        />
-
-        <Chip
-          label={risk}
-          color={color}
-          sx={{ mb: 3 }}
-        />
-
-        <Divider sx={{ mb: 2 }} />
-
-        <Typography
-          variant="subtitle1"
-          fontWeight="bold"
-          gutterBottom
-        >
-          AI Analysis
-        </Typography>
-
-        <List dense>
-
-          <ListItem>
-
-            <ListItemIcon>
-
-              <CheckCircleIcon color="success" />
-
-            </ListItemIcon>
-
-            <ListItemText
-              primary="Incident ID validated"
-            />
-
-          </ListItem>
-
-          <ListItem>
-
-            <ListItemIcon>
-
-              <SecurityIcon color="error" />
-
-            </ListItemIcon>
-
-            <ListItemText
-              primary={`Server Criticality : ${request.criticality}`}
-            />
-
-          </ListItem>
-
-          <ListItem>
-
-            <ListItemIcon>
-
-              <WarningAmberIcon color="warning" />
-
-            </ListItemIcon>
-
-            <ListItemText
-              primary={`Environment : ${request.environment}`}
-            />
-
-          </ListItem>
-
-          <ListItem>
-
-            <ListItemIcon>
-
-              <SecurityIcon color="primary" />
-
-            </ListItemIcon>
-
-            <ListItemText
-              primary={`Secret : ${request.secret}`}
-            />
-
-          </ListItem>
-
-          <ListItem>
-
-            <ListItemIcon>
-
-              <CheckCircleIcon color="success" />
-
-            </ListItemIcon>
-
-            <ListItemText
-              primary={`Access Duration : ${request.duration}`}
-            />
-
-          </ListItem>
-
-        </List>
-
-        <Divider sx={{ my: 2 }} />
-
-        <Typography
-          variant="subtitle1"
-          fontWeight="bold"
-        >
-          AI Recommendation
-        </Typography>
-
-        <Typography
-          color="text.secondary"
-          sx={{ mt: 1 }}
-        >
-          {recommendation}
-        </Typography>
-
-        <Box mt={3}>
-
-          <Typography
-            variant="body2"
-            color="text.secondary"
-          >
-            Confidence Score
-          </Typography>
-
-          <Typography
-            variant="h5"
-            fontWeight="bold"
-          >
-            97%
-          </Typography>
-
-        </Box>
-
-        <Button
-          fullWidth
-          variant="contained"
-          sx={{
-            mt: 3,
-            height: 45,
-          }}
-        >
-          View Full AI Analysis
-        </Button>
-
-      </CardContent>
-
-    </Card>
-  );
 }
 
 export default AIRecommendationCard;
-
-....
-
-src/utils/aiRecommendationEngine.js
-
-export const calculateRisk = (request) => {
-
-    let score = 0;
-    const reasons = [];
-    const controls = [];
-
-    // Environment
-    if (request.environment === "PRODUCTION") {
-        score += 30;
-        reasons.push("Production environment");
-        controls.push("Security approval required");
-    } else {
-        score += 5;
-    }
-
-    // Server Criticality
-    switch (request.criticality) {
-
-        case "CRITICAL":
-            score += 30;
-            reasons.push("Critical production server");
-            controls.push("Enable session recording");
-            break;
-
-        case "HIGH":
-            score += 20;
-            reasons.push("High critical server");
-            break;
-
-        case "MEDIUM":
-            score += 10;
-            reasons.push("Medium critical server");
-            break;
-
-        default:
-            score += 5;
-    }
-
-    // Secret Type
-    if (request.secret?.includes("PASSWORD")) {
-
-        score += 20;
-        reasons.push("Privileged database password");
-
-        controls.push("Rotate password after use");
-
-    } else if (request.secret?.includes("KEY")) {
-
-        score += 15;
-        reasons.push("Sensitive API Key");
-
-    } else if (request.secret?.includes("CERT")) {
-
-        score += 10;
-        reasons.push("Certificate access");
-
-    }
-
-    // Duration
-    const duration = parseInt(request.duration);
-
-    if (duration > 60) {
-
-        score += 15;
-        reasons.push("Long duration requested");
-
-    } else {
-
-        reasons.push("Access duration within policy");
-
-    }
-
-    // Incident
-    if (request.incidentId) {
-
-        score -= 5;
-        reasons.push("Incident ID validated");
-
-    }
-
-    // Confidence
-
-    let confidence = 95;
-
-    if (score > 80)
-        confidence = 98;
-
-    if (score < 40)
-        confidence = 92;
-
-    // Risk
-
-    let risk = "LOW";
-
-    let recommendation = "AUTO APPROVE";
-
-    if (score >= 80) {
-
-        risk = "CRITICAL";
-
-        recommendation = "SECURITY APPROVAL REQUIRED";
-
-    }
-
-    else if (score >= 60) {
-
-        risk = "HIGH";
-
-        recommendation = "MANAGER APPROVAL REQUIRED";
-
-    }
-
-    else if (score >= 40) {
-
-        risk = "MEDIUM";
-
-        recommendation = "MANUAL REVIEW";
-
-    }
-
-    // Business Impact
-
-    const impact =
-        request.environment === "PRODUCTION"
-            ? "Customer facing production workload"
-            : "Non Production workload";
-
-    return {
-
-        score,
-
-        confidence,
-
-        risk,
-
-        recommendation,
-
-        impact,
-
-        reasons,
-
-        controls,
-
-        summary:
-            `AI analysed ${request.server}. This request targets ${request.secret} on a ${request.environment} server. Risk level is ${risk}. ${recommendation}.`
-
-    };
-
-};
-
