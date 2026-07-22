@@ -1,4 +1,37 @@
-import { useState } from "react";
+const getServerList = async () => {
+    const response = await api.get("/api/servers");
+    return response.data;
+};
+
+export default {
+    getAllServers,
+    getServerById,
+    createServer,
+    updateServer,
+    deleteServer,
+    getServerList
+};
+
+import api from "./api";
+
+const API_URL="/api/secrets";
+
+const getAllSecrets=async()=>{
+
+    const response=await api.get(API_URL);
+
+    return response.data;
+
+}
+
+export default{
+
+    getAllSecrets
+
+}
+.....
+
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -8,44 +41,113 @@ import {
   MenuItem,
   Button,
   Alert,
+  CircularProgress,
 } from "@mui/material";
+
+import serverService from "../../services/serverService";
+import secretService from "../../services/secretService";
 
 const durations = [15, 30, 60, 120];
 
+const initialForm = {
+  serverId: "",
+  secretId: "",
+  incidentId: "",
+  duration: 30,
+  justification: "",
+  requestedBy: "admin",
+};
+
 function RequestForm() {
-  const [form, setForm] = useState({
-    serverId: "",
-    secretId: "",
-    incidentId: "",
-    duration: 30,
-    justification: "",
-    requestedBy: "admin",
-  });
+  const [form, setForm] = useState(initialForm);
 
-  // Temporary data (replace with API data later)
-  const servers = [
-    { id: 1, hostname: "APP-PROD-01" },
-    { id: 2, hostname: "DB-PROD-01" },
-    { id: 3, hostname: "API-PROD-01" },
-  ];
+  const [servers, setServers] = useState([]);
+  const [allSecrets, setAllSecrets] = useState([]);
+  const [filteredSecrets, setFilteredSecrets] = useState([]);
 
-  const secrets = [
-    { id: 1, name: "DB_PASSWORD" },
-    { id: 2, name: "JWT_KEY" },
-    { id: 3, name: "TLS_CERTIFICATE" },
-  ];
+  const [loading, setLoading] = useState(true);
 
-  const handleChange = (e) => {
-    setForm({
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+
+      const serverResponse = await serverService.getServerList();
+      setServers(serverResponse);
+
+      const secretResponse = await secretService.getAllSecrets();
+      setAllSecrets(secretResponse);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    const updatedForm = {
       ...form,
-      [e.target.name]: e.target.value,
-    });
+      [name]: value,
+    };
+
+    if (name === "serverId") {
+      const selectedServer = servers.find(
+        (server) => server.id === Number(value)
+      );
+
+      if (selectedServer) {
+        const secrets = allSecrets.filter(
+          (secret) => secret.serverName === selectedServer.hostname
+        );
+
+        setFilteredSecrets(secrets);
+      } else {
+        setFilteredSecrets([]);
+      }
+
+      updatedForm.secretId = "";
+    }
+
+    setForm(updatedForm);
   };
 
-  const submit = () => {
-    console.log(form);
-    // TODO: call BreakGlass API
+  const handleSubmit = () => {
+    if (
+      !form.serverId ||
+      !form.secretId ||
+      !form.incidentId ||
+      !form.justification
+    ) {
+      alert("Please fill all mandatory fields.");
+      return;
+    }
+
+    console.log("Break Glass Request", form);
+
+    // TODO:
+    // breakGlassService.createRequest(form);
   };
+
+  if (loading) {
+    return (
+      <Card sx={{ borderRadius: 4 }}>
+        <CardContent
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            p: 5,
+          }}
+        >
+          <CircularProgress />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card sx={{ borderRadius: 4 }}>
@@ -56,7 +158,7 @@ function RequestForm() {
         </Typography>
 
         <Alert severity="warning" sx={{ mb: 3 }}>
-          Emergency access is fully audited and time limited.
+          Emergency privileged access is time limited and fully audited.
         </Alert>
 
         <Grid container spacing={2}>
@@ -65,16 +167,14 @@ function RequestForm() {
             <TextField
               select
               fullWidth
+              required
               label="Server"
               name="serverId"
               value={form.serverId}
               onChange={handleChange}
             >
               {servers.map((server) => (
-                <MenuItem
-                  key={server.id}
-                  value={server.id}
-                >
+                <MenuItem key={server.id} value={server.id}>
                   {server.hostname}
                 </MenuItem>
               ))}
@@ -85,17 +185,19 @@ function RequestForm() {
             <TextField
               select
               fullWidth
+              required
+              disabled={!form.serverId}
               label="Secret"
               name="secretId"
               value={form.secretId}
               onChange={handleChange}
             >
-              {secrets.map((secret) => (
+              {filteredSecrets.map((secret) => (
                 <MenuItem
                   key={secret.id}
                   value={secret.id}
                 >
-                  {secret.name}
+                  {secret.secretName}
                 </MenuItem>
               ))}
             </TextField>
@@ -104,11 +206,12 @@ function RequestForm() {
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
+              required
               label="Incident ID"
               name="incidentId"
-              placeholder="INC-2026-10021"
               value={form.incidentId}
               onChange={handleChange}
+              placeholder="INC-2026-001245"
             />
           </Grid>
 
@@ -121,9 +224,12 @@ function RequestForm() {
               value={form.duration}
               onChange={handleChange}
             >
-              {durations.map((d) => (
-                <MenuItem key={d} value={d}>
-                  {d} Minutes
+              {durations.map((duration) => (
+                <MenuItem
+                  key={duration}
+                  value={duration}
+                >
+                  {duration} Minutes
                 </MenuItem>
               ))}
             </TextField>
@@ -132,13 +238,13 @@ function RequestForm() {
           <Grid item xs={12}>
             <TextField
               fullWidth
-              label="Business Justification"
+              required
               multiline
               rows={4}
+              label="Business Justification"
               name="justification"
               value={form.justification}
               onChange={handleChange}
-              placeholder="Explain why emergency access is required..."
             />
           </Grid>
 
@@ -158,11 +264,8 @@ function RequestForm() {
               variant="contained"
               size="large"
               fullWidth
-              onClick={submit}
-              sx={{
-                height: 50,
-                fontWeight: "bold",
-              }}
+              sx={{ height: 50 }}
+              onClick={handleSubmit}
             >
               Submit Break Glass Request
             </Button>
