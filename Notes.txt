@@ -1,373 +1,62 @@
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 
-import { Box, Container, Grid, Typography } from "@mui/material";
+import App from "./App";
 
-import Sidebar from "../components/layout/Sidebar";
-import Header from "../components/layout/Header";
-
-import DashboardCards from "../components/dashboard/DashboardCards";
-import ServerHealth from "../components/dashboard/ServerHealth";
-import RecentActivity from "../components/dashboard/RecentActivity";
-import AIAdvisor from "../components/dashboard/AIAdvisor";
-
-function Dashboard() {
-
-  return (
-
-    <Box
-      sx={{
-        display: "flex",
-        minHeight: "100vh",
-        bgcolor: "#F4F7FB"
-      }}
-    >
-
-      <Sidebar />
-
-      <Box sx={{ flex: 1, p: 4 }}>
-
-        <Header />
-
-        <Container maxWidth="xl">
-
-          <Typography
-            variant="h4"
-            fontWeight={700}
-            mb={4}
-          >
-            Security Operations Dashboard
-          </Typography>
-
-          <DashboardCards />
-
-          <Grid container spacing={3} mt={1}>
-
-            <Grid item xs={12} md={8}>
-              <ServerHealth />
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <AIAdvisor />
-            </Grid>
-
-            <Grid item xs={12}>
-              <RecentActivity />
-            </Grid>
-
-          </Grid>
-
-        </Container>
-
-      </Box>
-
-    </Box>
-
-  );
-
-}
-
-export default Dashboard;
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>
+);
 
 ...
-import { Grid, Card, CardContent, Typography } from "@mui/material";
 
-const cards = [
+import { Routes, Route, Navigate } from "react-router-dom";
 
-{title:"Servers",value:"128"},
-{title:"Secrets",value:"3245"},
-{title:"Break Glass",value:"4"},
-{title:"Approvals",value:"16"}
+import LandingPage from "./pages/LandingPage";
+import Dashboard from "./pages/Dashboard";
 
-];
+function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/dashboard" element={<Dashboard />} />
 
-function DashboardCards(){
+      {/* Placeholder routes */}
+      <Route path="/login" element={<h2>Login Page</h2>} />
+      <Route path="/servers" element={<h2>Server Inventory</h2>} />
+      <Route path="/secrets" element={<h2>Secret Inventory</h2>} />
+      <Route path="/breakglass" element={<h2>Break Glass</h2>} />
+      <Route path="/approvals" element={<h2>Approvals</h2>} />
+      <Route path="/advisor" element={<h2>AI Advisor</h2>} />
+      <Route path="/audit" element={<h2>Audit Trail</h2>} />
 
-return(
-
-<Grid container spacing={3}>
-
-{cards.map((c)=>(
-
-<Grid item xs={12} md={3} key={c.title}>
-
-<Card sx={{borderRadius:4}}>
-
-<CardContent>
-
-<Typography color="text.secondary">
-
-{c.title}
-
-</Typography>
-
-<Typography
-variant="h3"
-fontWeight={700}
->
-
-{c.value}
-
-</Typography>
-
-</CardContent>
-
-</Card>
-
-</Grid>
-
-))}
-
-</Grid>
-
-)
-
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
 
-export default DashboardCards;
+export default App;
+
 
 ....
-import {
 
-Card,
-CardContent,
-Typography,
-LinearProgress,
-Stack
+import { useNavigate } from "react-router-dom";
+...
 
-} from "@mui/material";
+const navigate = useNavigate();
 
-function ServerHealth(){
-
-return(
-
-<Card sx={{borderRadius:4,height:320}}>
-
-<CardContent>
-
-<Typography
-variant="h6"
-fontWeight={700}
-mb={3}
->
-
-Server Health
-
-</Typography>
-
-<Stack spacing={3}>
-
-<Typography>
-
-Production Cluster
-
-</Typography>
-
-<LinearProgress
-variant="determinate"
-value={96}
-/>
-
-<Typography>
-
-Vault Service
-
-</Typography>
-
-<LinearProgress
-variant="determinate"
-value={88}
-/>
-
-<Typography>
-
-API Gateway
-
-</Typography>
-
-<LinearProgress
-variant="determinate"
-value={98}
-/>
-
-<Typography>
-
-Database
-
-</Typography>
-
-<LinearProgress
-variant="determinate"
-value={93}
-/>
-
-</Stack>
-
-</CardContent>
-
-</Card>
-
-)
-
-}
-
-export default ServerHealth;
 
 ....
-import {
-
-Card,
-CardContent,
-Typography,
-Button
-
-} from "@mui/material";
-
-function AIAdvisor(){
-
-return(
-
-<Card sx={{borderRadius:4,height:320}}>
-
-<CardContent>
-
-<Typography
-variant="h6"
-fontWeight={700}
->
-
-AI Risk Advisor
-
-</Typography>
-
-<Typography
-mt={3}
-color="text.secondary"
->
-
-Current Risk Score
-
-</Typography>
-
-<Typography
-variant="h2"
-color="success.main"
-fontWeight={700}
->
-
-LOW
-
-</Typography>
-
-<Typography
-mt={3}
->
-
-✔ No unusual privileged activity
-
-</Typography>
-
-<Typography>
-
-✔ Vault synchronization healthy
-
-</Typography>
-
-<Typography>
-
-✔ Approval SLA within limits
-
-</Typography>
 
 <Button
-variant="contained"
-fullWidth
-sx={{mt:4}}
+  size="large"
+  variant="outlined"
+  startIcon={<DashboardIcon />}
+  onClick={() => navigate("/dashboard")}
 >
-
-Generate AI Report
-
+  Operations Dashboard
 </Button>
-
-</CardContent>
-
-</Card>
-
-)
-
-}
-
-export default AIAdvisor;
-
-....
-import {
-
-Card,
-CardContent,
-Typography,
-List,
-ListItem,
-Divider
-
-} from "@mui/material";
-
-const rows=[
-
-"Admin approved Break Glass request",
-"Vault synchronization completed",
-"Secret rotated successfully",
-"New server registered",
-"Audit log exported"
-
-];
-
-function RecentActivity(){
-
-return(
-
-<Card sx={{borderRadius:4}}>
-
-<CardContent>
-
-<Typography
-variant="h6"
-fontWeight={700}
-mb={2}
->
-
-Recent Activity
-
-</Typography>
-
-<List>
-
-{rows.map((r)=>(
-
-<div key={r}>
-
-<ListItem>
-
-{r}
-
-</ListItem>
-
-<Divider/>
-
-</div>
-
-))}
-
-</List>
-
-</CardContent>
-
-</Card>
-
-)
-
-}
-
-export default RecentActivity;
-
-
-
-....
-
