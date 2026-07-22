@@ -1,39 +1,335 @@
-package com.vaultguardian.ai.config;
+# VaultGuardian AI
 
-import java.util.List;
+## Intelligent Offline Break Glass Platform
 
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+VaultGuardian AI is an AI-powered emergency privileged access platform designed for enterprise environments where traditional secret management systems (such as HashiCorp Vault or CyberArk) become unavailable during outages, cyber attacks, or disaster recovery scenarios.
 
-@Configuration
-public class CorsConfig {
+The platform enables secure emergency access to production secrets while ensuring AI-driven risk assessment, approval workflow, auditing, and governance.
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+---
 
-        CorsConfiguration configuration = new CorsConfiguration();
+# Problem Statement
 
-        configuration.setAllowedOriginPatterns(List.of("*"));
+Modern enterprises rely heavily on centralized secret management platforms.
 
-        configuration.setAllowedMethods(List.of(
-                "GET",
-                "POST",
-                "PUT",
-                "DELETE",
-                "OPTIONS"));
+During planned maintenance, production outages, ransomware attacks, or disaster recovery scenarios, these platforms may become unavailable.
 
-        configuration.setAllowedHeaders(List.of("*"));
+As a result:
 
-        configuration.setAllowCredentials(false);
+- Production engineers cannot access critical credentials.
+- Incident resolution time increases.
+- Manual break-glass processes are slow.
+- Lack of centralized auditing.
+- High risk of unauthorized privileged access.
 
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
+---
 
-        source.registerCorsConfiguration("/**", configuration);
+# Solution
 
-        return source;
-    }
-}
+VaultGuardian AI provides an intelligent offline emergency access platform.
+
+The platform allows users to:
+
+- Register production servers
+- Manage application secrets
+- Submit emergency Break Glass requests
+- Perform AI-based risk assessment
+- Route requests for approval
+- Provide explainable AI recommendations
+- Maintain complete audit history
+
+---
+
+# Features
+
+### Authentication
+
+- JWT Authentication
+- Role Based Access
+- Spring Security
+
+### Server Inventory
+
+- Add Server
+- Update Server
+- Delete Server
+- Search Servers
+
+### Secret Inventory
+
+- Secret Registration
+- Vault Reference
+- Rotation Period
+- Secret Expiry
+- Secret Status
+
+### Break Glass
+
+- Emergency Access Request
+- Incident ID Validation
+- Business Justification
+- Time Limited Access
+
+### AI Recommendation Engine
+
+- AI Risk Score
+- Explainable AI
+- Business Impact Analysis
+- Security Controls
+- Confidence Score
+- AI Generated Summary
+
+### Approval Workflow
+
+- Pending Requests
+- AI Recommendation
+- Approve
+- Reject
+- Escalate
+
+---
+
+# Technology Stack
+
+## Backend
+
+- Java 21
+- Spring Boot 3.5
+- Spring Security
+- Spring Data JPA
+- H2 Database
+- JWT Authentication
+- Maven
+- Swagger OpenAPI
+
+## Frontend
+
+- React 19
+- Vite
+- Material UI
+- React Router
+- Axios
+
+---
+
+# Project Structure
+
+```
+vaultguardian-ai
+│
+├── backend
+│     ├── controller
+│     ├── service
+│     ├── repository
+│     ├── entity
+│     ├── dto
+│     └── security
+│
+└── frontend
+      ├── components
+      ├── pages
+      ├── services
+      ├── utils
+      └── layouts
+```
+
+---
+
+# Application Workflow
+
+```
+Login
+      │
+      ▼
+Dashboard
+      │
+      ▼
+Server Inventory
+      │
+      ▼
+Secret Inventory
+      │
+      ▼
+Break Glass Request
+      │
+      ▼
+AI Risk Assessment
+      │
+      ▼
+Approval Queue
+      │
+      ▼
+Approve / Reject
+      │
+      ▼
+Audit Log
+```
+
+---
+
+# Backend Setup
+
+## Prerequisites
+
+- Java 21
+- Maven 3.9+
+- IntelliJ IDEA (Recommended)
+
+## Clone Repository
+
+```bash
+git clone <repository-url>
+```
+
+## Navigate
+
+```bash
+cd backend
+```
+
+## Build
+
+```bash
+mvn clean install
+```
+
+## Run
+
+```bash
+mvn spring-boot:run
+```
+
+Backend will start at
+
+```
+http://localhost:8080
+```
+
+---
+
+# Swagger
+
+```
+http://localhost:8080/swagger-ui/index.html
+```
+
+---
+
+# H2 Database
+
+```
+http://localhost:8080/h2-console
+```
+
+Database URL
+
+```
+jdbc:h2:mem:vaultguardian
+```
+
+Username
+
+```
+sa
+```
+
+Password
+
+```
+
+```
+
+---
+
+# Frontend Setup
+
+## Prerequisites
+
+- Node.js 20+
+- npm
+
+## Navigate
+
+```bash
+cd frontend
+```
+
+## Install
+
+```bash
+npm install
+```
+
+## Run
+
+```bash
+npm run dev
+```
+
+Application URL
+
+```
+http://localhost:5173
+```
+
+---
+
+# Default Login
+
+```
+Username
+
+admin
+
+Password
+
+admin123
+```
+
+---
+
+# AI Risk Factors
+
+VaultGuardian AI evaluates requests based on multiple parameters:
+
+- Environment
+- Server Criticality
+- Secret Sensitivity
+- Incident Validation
+- Access Duration
+- Business Impact
+- Historical Intelligence
+
+The AI engine generates:
+
+- Risk Score
+- Confidence Score
+- AI Recommendation
+- Security Controls
+- Explainable Decision
+
+---
+
+# Future Enhancements
+
+- HashiCorp Vault Integration
+- CyberArk Integration
+- Active Directory Integration
+- MFA Authentication
+- Session Recording
+- AI Anomaly Detection
+- Kubernetes Secret Integration
+- Email & Teams Notifications
+- Audit Dashboard
+
+---
+
+# Team
+
+Team Vector Minds
+
+Project
+
+VaultGuardian AI
+
+Accelerate 3.0 Pre Hackathon 2026
