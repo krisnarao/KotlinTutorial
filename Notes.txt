@@ -1,189 +1,155 @@
-package com.vaultguardian.ai.dto;
+import { createTheme } from "@mui/material/styles";
 
-import lombok.*;
+const theme = createTheme({
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class AIRecommendation {
+    palette: {
 
-    private String severity;
+        primary: {
+            main: "#0F8C4A"
+        },
 
-    private String title;
+        secondary: {
+            main: "#071B3D"
+        },
 
-    private String recommendation;
-
-    private String category;
-
-}
-
-....
-package com.vaultguardian.ai.service;
-
-import com.vaultguardian.ai.dto.AIRecommendation;
-
-import java.util.List;
-
-public interface AIRecommendationService {
-
-    List<AIRecommendation> generateRecommendations();
-
-}
-
-....
-package com.vaultguardian.ai.service.impl;
-
-import com.vaultguardian.ai.dto.AIRecommendation;
-import com.vaultguardian.ai.enums.BreakGlassStatus;
-import com.vaultguardian.ai.enums.Criticality;
-import com.vaultguardian.ai.repository.BreakGlassRepository;
-import com.vaultguardian.ai.repository.SecretRepository;
-import com.vaultguardian.ai.repository.ServerRepository;
-import com.vaultguardian.ai.service.AIRecommendationService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-
-@Service
-@RequiredArgsConstructor
-public class AIRecommendationServiceImpl
-        implements AIRecommendationService {
-
-    private final ServerRepository serverRepository;
-
-    private final SecretRepository secretRepository;
-
-    private final BreakGlassRepository breakGlassRepository;
-
-    @Override
-    public List<AIRecommendation> generateRecommendations() {
-
-        List<AIRecommendation> list = new ArrayList<>();
-
-        long expiringSecrets =
-                secretRepository.countByExpiryDateBetween(
-                        LocalDate.now(),
-                        LocalDate.now().plusDays(30));
-
-        if(expiringSecrets>0){
-
-            list.add(
-                    AIRecommendation.builder()
-                            .severity("HIGH")
-                            .category("Secret Rotation")
-                            .title("Secrets Expiring Soon")
-                            .recommendation(
-                                    expiringSecrets+
-                                            " secrets will expire within 30 days. Rotate immediately.")
-                            .build());
-
+        background: {
+            default: "#F4F7FB"
         }
 
-        long pending=
-                breakGlassRepository.countByStatus(
-                        BreakGlassStatus.PENDING);
+    },
 
-        if(pending>0){
+    typography: {
 
-            list.add(
-                    AIRecommendation.builder()
-                            .severity("MEDIUM")
-                            .category("BreakGlass")
-                            .title("Pending Approval")
-                            .recommendation(
-                                    pending+
-                                            " emergency access requests require approval.")
-                            .build());
+        fontFamily: "'Inter', 'Segoe UI', sans-serif",
 
+        h2: {
+            fontWeight: 700
+        },
+
+        h3: {
+            fontWeight: 700
+        },
+
+        h4: {
+            fontWeight: 600
+        },
+
+        button: {
+            textTransform: "none",
+            fontWeight: 600
         }
 
-        long critical=
-                serverRepository.countByCriticality(
-                        Criticality.CRITICAL);
+    },
 
-        if(critical>2){
-
-            list.add(
-                    AIRecommendation.builder()
-                            .severity("HIGH")
-                            .category("Infrastructure")
-                            .title("Critical Servers")
-                            .recommendation(
-                                    critical+
-                                            " production servers are marked as CRITICAL. Review privileged access.")
-                            .build());
-
-        }
-
-        long inactive=
-                secretRepository.countByActive(false);
-
-        if(inactive>0){
-
-            list.add(
-                    AIRecommendation.builder()
-                            .severity("LOW")
-                            .category("Secrets")
-                            .title("Inactive Secrets")
-                            .recommendation(
-                                    inactive+
-                                            " inactive secrets can be archived.")
-                            .build());
-
-        }
-
-        if(list.isEmpty()){
-
-            list.add(
-                    AIRecommendation.builder()
-                            .severity("INFO")
-                            .category("Overall")
-                            .title("Healthy Environment")
-                            .recommendation(
-                                    "No immediate security risks detected.")
-                            .build());
-
-        }
-
-        return list;
-
+    shape: {
+        borderRadius: 18
     }
 
-}
+});
+
+export default theme;
 
 ....
-package com.vaultguardian.ai.controller;
 
-import com.vaultguardian.ai.dto.AIRecommendation;
-import com.vaultguardian.ai.service.AIRecommendationService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import React from "react";
+import ReactDOM from "react-dom/client";
 
-import java.util.List;
+import { ThemeProvider } from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
 
-@RestController
-@RequestMapping("/api/ai")
-@RequiredArgsConstructor
-public class AIRecommendationController {
+import theme from "./theme/theme";
+import App from "./App";
 
-    private final AIRecommendationService service;
+ReactDOM.createRoot(document.getElementById("root")).render(
 
-    @GetMapping("/recommendations")
-    public List<AIRecommendation> recommendations(){
+    <React.StrictMode>
 
-        return service.generateRecommendations();
+        <ThemeProvider theme={theme}>
 
-    }
-long countByStatus(BreakGlassStatus status);
+            <CssBaseline />
+
+            <App />
+
+        </ThemeProvider>
+
+    </React.StrictMode>
+
+);
+.....
+
+src/router/AppRouter.jsx
+
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+import LandingPage from "../pages/LandingPage";
+import LoginPage from "../pages/LoginPage";
+
+function AppRouter() {
+
+    return (
+
+        <BrowserRouter>
+
+            <Routes>
+
+                <Route
+                    path="/"
+                    element={<LandingPage />}
+                />
+
+                <Route
+                    path="/login"
+                    element={<LoginPage />}
+                />
+
+            </Routes>
+
+        </BrowserRouter>
+
+    );
+
 }
+
+export default AppRouter;
+
+....
+App.jsx
+
+import AppRouter from "./router/AppRouter";
+
+function App() {
+
+    return <AppRouter />;
+
+}
+
+export default App;
+
+
+....
+src/pages/LandingPage.jsx
+function LandingPage() {
+
+    return (
+
+        <h1>VaultGuardian AI Landing Page</h1>
+
+    );
+
+}
+
+export default LandingPage;
+
 ...
-long countByExpiryDateBetween(LocalDate start,
-                              LocalDate end);
+src/pages/LoginPage.jsx
+function LoginPage() {
 
+    return (
 
+        <h1>Login Page</h1>
 
+    );
+
+}
+
+export default LoginPage;
