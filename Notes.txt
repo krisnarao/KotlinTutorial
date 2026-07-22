@@ -1,62 +1,281 @@
 import React from "react";
-import ReactDOM from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import {
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Chip,
+} from "@mui/material";
 
-import App from "./App";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import LoginIcon from "@mui/icons-material/Login";
+import VpnKeyIcon from "@mui/icons-material/VpnKey";
+import LockOpenIcon from "@mui/icons-material/LockOpen";
+import ApprovalIcon from "@mui/icons-material/Approval";
+import SecurityIcon from "@mui/icons-material/Security";
+import SmartToyIcon from "@mui/icons-material/SmartToy";
+import AssessmentIcon from "@mui/icons-material/Assessment";
+import StorageIcon from "@mui/icons-material/Storage";
 
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>
-);
+import { useNavigate, useLocation } from "react-router-dom";
 
-...
+const menuItems = [
+  {
+    text: "Login",
+    icon: <LoginIcon />,
+    path: "/login",
+  },
+  {
+    text: "Dashboard",
+    icon: <DashboardIcon />,
+    path: "/dashboard",
+  },
+  {
+    text: "Server Inventory",
+    icon: <StorageIcon />,
+    path: "/servers",
+  },
+  {
+    text: "Secret Inventory",
+    icon: <VpnKeyIcon />,
+    path: "/secrets",
+  },
+  {
+    text: "Break Glass",
+    icon: <LockOpenIcon />,
+    path: "/breakglass",
+  },
+  {
+    text: "Approvals",
+    icon: <ApprovalIcon />,
+    path: "/approvals",
+  },
+  {
+    text: "AI Advisor",
+    icon: <SmartToyIcon />,
+    path: "/advisor",
+  },
+  {
+    text: "Audit Trail",
+    icon: <AssessmentIcon />,
+    path: "/audit",
+  },
+];
 
-import { Routes, Route, Navigate } from "react-router-dom";
+function Sidebar() {
+  const navigate = useNavigate();
+  const location = useLocation();
 
-import LandingPage from "./pages/LandingPage";
-import Dashboard from "./pages/Dashboard";
-
-function App() {
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/dashboard" element={<Dashboard />} />
+    <Box
+      sx={{
+        width: 320,
+        minHeight: "100vh",
+        background:
+          "linear-gradient(180deg,#061B44 0%,#0A3C69 45%,#148A43 100%)",
+        color: "white",
+        display: "flex",
+        flexDirection: "column",
+        p: 3,
+        boxSizing: "border-box",
+      }}
+    >
+      <Chip
+        label="PRODUCT UI PROTOTYPE"
+        sx={{
+          alignSelf: "flex-start",
+          background: "rgba(255,255,255,.12)",
+          color: "white",
+          fontWeight: 600,
+          mb: 3,
+        }}
+      />
 
-      {/* Placeholder routes */}
-      <Route path="/login" element={<h2>Login Page</h2>} />
-      <Route path="/servers" element={<h2>Server Inventory</h2>} />
-      <Route path="/secrets" element={<h2>Secret Inventory</h2>} />
-      <Route path="/breakglass" element={<h2>Break Glass</h2>} />
-      <Route path="/approvals" element={<h2>Approvals</h2>} />
-      <Route path="/advisor" element={<h2>AI Advisor</h2>} />
-      <Route path="/audit" element={<h2>Audit Trail</h2>} />
+      <Typography variant="h4" fontWeight={700}>
+        VaultGuardian AI
+      </Typography>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      <Typography
+        sx={{
+          mt: 2,
+          opacity: 0.9,
+          lineHeight: 1.8,
+        }}
+      >
+        Offline break-glass platform for secure emergency privileged access,
+        AI approvals and audit governance.
+      </Typography>
+
+      <Card
+        sx={{
+          mt: 4,
+          borderRadius: 4,
+          background: "rgba(255,255,255,.12)",
+          color: "white",
+        }}
+      >
+        <CardContent>
+          <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            Active Outage Mode
+          </Typography>
+
+          <Typography variant="h4" fontWeight={700} mt={1}>
+            Severity 1
+          </Typography>
+
+          <Typography mt={1} fontSize={14}>
+            Central Vault unavailable.
+            <br />
+            Offline recovery workflow enabled.
+          </Typography>
+        </CardContent>
+      </Card>
+
+      <List sx={{ mt: 4 }}>
+        {menuItems.map((item) => (
+          <ListItemButton
+            key={item.text}
+            selected={location.pathname === item.path}
+            onClick={() => navigate(item.path)}
+            sx={{
+              borderRadius: 3,
+              color: "white",
+              mb: 1.2,
+              py: 1.4,
+
+              "&.Mui-selected": {
+                background: "rgba(255,255,255,.18)",
+              },
+
+              "&.Mui-selected:hover": {
+                background: "rgba(255,255,255,.22)",
+              },
+
+              "&:hover": {
+                background: "rgba(255,255,255,.12)",
+              },
+            }}
+          >
+            <ListItemIcon
+              sx={{
+                color: "white",
+                minWidth: 40,
+              }}
+            >
+              {item.icon}
+            </ListItemIcon>
+
+            <ListItemText primary={item.text} />
+          </ListItemButton>
+        ))}
+      </List>
+
+      <Box sx={{ flexGrow: 1 }} />
+
+      <Card
+        sx={{
+          borderRadius: 4,
+          background: "rgba(255,255,255,.10)",
+          color: "white",
+        }}
+      >
+        <CardContent>
+          <Typography variant="subtitle1" fontWeight={600}>
+            <SecurityIcon sx={{ mr: 1, verticalAlign: "middle" }} />
+            Emergency Mode
+          </Typography>
+
+          <Typography fontSize={13} mt={2}>
+            ✔ AI Risk Assessment
+            <br />
+            ✔ Multi-Level Approval
+            <br />
+            ✔ Audit Trail
+            <br />
+            ✔ Time Limited Access
+          </Typography>
+        </CardContent>
+      </Card>
+    </Box>
   );
 }
 
-export default App;
+export default Sidebar;
 
+...
+import React from "react";
+import {
+  Typography,
+  Button,
+  Stack,
+} from "@mui/material";
 
-....
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import DashboardIcon from "@mui/icons-material/Dashboard";
 
 import { useNavigate } from "react-router-dom";
-...
 
-const navigate = useNavigate();
+function HeroSection() {
+  const navigate = useNavigate();
 
+  return (
+    <>
+      <Typography
+        variant="h2"
+        fontWeight={700}
+        sx={{
+          maxWidth: 900,
+          lineHeight: 1.15,
+        }}
+      >
+        From outage escalation
+        <br />
+        to governed
+        <br />
+        credential recovery.
+      </Typography>
 
-....
+      <Typography
+        mt={3}
+        maxWidth={760}
+        color="text.secondary"
+        lineHeight={1.8}
+      >
+        VaultGuardian AI provides secure offline privileged access,
+        AI-assisted approvals, enterprise governance,
+        audit compliance, secret inventory,
+        and rapid production recovery during
+        cyber incidents and vault outages.
+      </Typography>
 
-<Button
-  size="large"
-  variant="outlined"
-  startIcon={<DashboardIcon />}
-  onClick={() => navigate("/dashboard")}
->
-  Operations Dashboard
-</Button>
+      <Stack
+        direction="row"
+        spacing={2}
+        mt={5}
+      >
+        <Button
+          variant="contained"
+          size="large"
+          startIcon={<PlayArrowIcon />}
+        >
+          Launch Request Flow
+        </Button>
+
+        <Button
+          variant="outlined"
+          size="large"
+          startIcon={<DashboardIcon />}
+          onClick={() => navigate("/dashboard")}
+        >
+          Operations Dashboard
+        </Button>
+      </Stack>
+    </>
+  );
+}
+
+export default HeroSection;
