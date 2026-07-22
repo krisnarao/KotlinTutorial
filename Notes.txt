@@ -1,450 +1,551 @@
-# VaultGuardian AI Architecture
+# VaultGuardian AI API Documentation
 
 ## Intelligent Offline Break Glass Access Platform
 
-## Overview
+**Version:** 1.0.0
 
-VaultGuardian AI is an enterprise-grade AI-powered Break Glass platform that provides secure emergency access to privileged credentials during outages, disaster recovery events, cyber incidents, and planned maintenance.
-
-Unlike traditional Break Glass solutions, VaultGuardian AI captures the current environment state, performs AI-assisted risk analysis using the enterprise AxessAI Factory platform, recommends the appropriate approval path, and maintains a complete immutable audit trail.
-
-The solution is designed to operate even when centralized secret management platforms are unavailable.
-
----
-
-# Architecture Overview
+**Base URL**
 
 ```
-                        USERS
+http://localhost:8080/api
+```
 
- Engineers      Approvers      Administrators
+**Authentication**
 
-                    │
-                    ▼
+JWT Bearer Token
 
-             React Frontend (Vite)
-
- Dashboard
- Secret Inventory
- Break Glass
- Environment Snapshot
- AI Risk Assessment
- Approval Workflow
- Secret Reveal
- Audit Timeline
- Administration
-
-                    │
-                    ▼
-
-               REST APIs (JWT)
-
-                    │
-                    ▼
-
-        Spring Boot Backend Services
-
- Authentication
- User & RBAC
- Server Inventory
- Secret Management
- Break Glass Service
- Environment Snapshot Service
- AxessAI Factory Integration
- Approval Workflow
- Audit & Reporting
- Notification
- Encryption
- Offline Secret Manager
-
-      ┌──────────────┴──────────────┐
-
-      ▼                             ▼
-
-PostgreSQL                    Offline Secret Vault
-
-      │                             │
-
-      └──────────────┬──────────────┘
-
-                     ▼
-
-              AxessAI Factory
-
-        Risk Analysis
-        Context Analysis
-        Policy Validation
-        Approver Recommendation
-        Business Impact
-        AI Summary
-
-                     │
-
-                     ▼
-
-            Immutable Audit Trail
+```
+Authorization: Bearer <JWT_TOKEN>
 ```
 
 ---
 
-# User Layer
+# Authentication APIs
 
-The solution supports three enterprise personas.
+## Login
 
-### Engineers
+Authenticate a user and generate a JWT token.
 
-- Submit Break Glass Requests
-- View AI Recommendation
-- Retrieve Temporary Secrets
+### Endpoint
 
-### Approvers
+```
+POST /auth/login
+```
 
-- Review AI Recommendation
-- Approve or Reject Requests
-- Escalate Requests
+### Request
 
-### Administrators
+```json
+{
+  "username": "admin",
+  "password": "admin123"
+}
+```
 
-- Manage Servers
-- Manage Secrets
-- Configure Policies
-- Manage Users
+### Response
 
----
-
-# Frontend Layer
-
-Developed using React and Material UI.
-
-Major modules include
-
-- Dashboard
-- Server Inventory
-- Secret Inventory
-- Break Glass
-- Environment Snapshot
-- AI Recommendation
-- Approval Workflow
-- Secret Reveal
-- Audit Timeline
-- Administration
-
-The frontend communicates with Spring Boot through secured REST APIs.
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "username": "admin",
+  "role": "ADMIN"
+}
+```
 
 ---
 
-# Backend Layer
+# Dashboard APIs
 
-Spring Boot provides all business services.
+## Dashboard Summary
 
-## Authentication Service
+Returns platform statistics.
+
+### Endpoint
+
+```
+GET /dashboard
+```
+
+### Response
+
+```json
+{
+  "totalServers": 25,
+  "totalSecrets": 146,
+  "pendingApprovals": 4,
+  "criticalServers": 8,
+  "highRiskRequests": 2
+}
+```
+
+---
+
+# Server Inventory APIs
+
+## Get All Servers
+
+```
+GET /servers
+```
+
+### Response
+
+```json
+[
+  {
+    "id": 1,
+    "hostname": "app-server-01",
+    "application": "Payments",
+    "environment": "PRODUCTION",
+    "status": "ACTIVE",
+    "criticality": "CRITICAL",
+    "owner": "Platform Team",
+    "ipAddress": "10.10.1.25"
+  }
+]
+```
+
+---
+
+## Get Server
+
+```
+GET /servers/{id}
+```
+
+---
+
+## Create Server
+
+```
+POST /servers
+```
+
+### Request
+
+```json
+{
+  "hostname": "app-server-10",
+  "application": "Internet Banking",
+  "environment": "PRODUCTION",
+  "criticality": "HIGH",
+  "owner": "Core Banking",
+  "ipAddress": "10.10.20.15"
+}
+```
+
+---
+
+## Update Server
+
+```
+PUT /servers/{id}
+```
+
+---
+
+## Delete Server
+
+```
+DELETE /servers/{id}
+```
+
+---
+
+# Secret Inventory APIs
+
+## Get All Secrets
+
+```
+GET /secrets
+```
+
+---
+
+## Get Secret
+
+```
+GET /secrets/{id}
+```
+
+---
+
+## Create Secret
+
+```
+POST /secrets
+```
+
+### Request
+
+```json
+{
+  "secretName": "DB_PASSWORD",
+  "vaultReference": "vault/db/password",
+  "secretType": "DATABASE",
+  "rotationDays": 90,
+  "serverId": 2
+}
+```
+
+---
+
+## Update Secret
+
+```
+PUT /secrets/{id}
+```
+
+---
+
+## Delete Secret
+
+```
+DELETE /secrets/{id}
+```
+
+---
+
+# Break Glass APIs
+
+## Submit Break Glass Request
+
+Creates an emergency privileged access request.
+
+### Endpoint
+
+```
+POST /breakglass
+```
+
+### Request
+
+```json
+{
+  "serverId": 2,
+  "secretId": 5,
+  "incidentId": "INC142141221",
+  "duration": 30,
+  "justification": "Production outage - Database recovery",
+  "requestedBy": "admin"
+}
+```
+
+### Response
+
+```json
+{
+  "requestId": 101,
+  "status": "PENDING",
+  "submittedTime": "2026-07-22T10:15:30",
+  "message": "Break Glass request submitted successfully."
+}
+```
+
+---
+
+## Get All Requests
+
+```
+GET /breakglass
+```
+
+---
+
+## Get Request
+
+```
+GET /breakglass/{id}
+```
+
+---
+
+## Approve Request
+
+```
+PUT /breakglass/{id}/approve
+```
+
+---
+
+## Reject Request
+
+```
+PUT /breakglass/{id}/reject
+```
+
+---
+
+## Escalate Request
+
+```
+PUT /breakglass/{id}/escalate
+```
+
+---
+
+# Environment Snapshot APIs
+
+Before AI analysis, VaultGuardian captures the operational state of the requested environment.
+
+## Capture Environment Snapshot
+
+```
+POST /environment/snapshot
+```
+
+### Request
+
+```json
+{
+  "serverId": 2,
+  "incidentId": "INC142141221"
+}
+```
+
+### Response
+
+```json
+{
+  "applicationHealth": "HEALTHY",
+  "cpuUsage": 48,
+  "memoryUsage": 62,
+  "runningPods": "8/8",
+  "diskUsage": 54,
+  "activeAlerts": 1,
+  "activeIncident": true,
+  "deploymentStatus": "Stable",
+  "businessCriticality": "HIGH"
+}
+```
+
+---
+
+# AI Recommendation APIs
+
+VaultGuardian integrates with the enterprise AxessAI Factory to evaluate emergency requests.
+
+## Generate AI Recommendation
+
+```
+POST /ai/recommendation
+```
+
+### Request
+
+```json
+{
+  "requestId": 101
+}
+```
+
+### Response
+
+```json
+{
+  "risk": "HIGH",
+  "score": 82,
+  "confidence": 97,
+  "recommendation": "SECURITY_APPROVAL_REQUIRED",
+  "businessImpact": "HIGH",
+  "summary": "Production database credential access requires security approval.",
+  "securityControls": [
+    "Enable Session Recording",
+    "Mandatory MFA",
+    "Rotate Secret After Use"
+  ]
+}
+```
+
+---
+
+# Approval Workflow APIs
+
+## Pending Approvals
+
+```
+GET /approval/pending
+```
+
+---
+
+## Approval Details
+
+```
+GET /approval/{id}
+```
+
+---
+
+## Approve
+
+```
+PUT /approval/{id}/approve
+```
+
+---
+
+## Reject
+
+```
+PUT /approval/{id}/reject
+```
+
+---
+
+## Escalate
+
+```
+PUT /approval/{id}/escalate
+```
+
+---
+
+# Secret Reveal APIs
+
+After successful approval, the secret is revealed for a limited duration.
+
+## Reveal Secret
+
+```
+GET /secret-reveal/{requestId}
+```
+
+### Response
+
+```json
+{
+  "secret": "Encrypted/Masked Secret",
+  "expiresIn": "30 Minutes",
+  "sessionId": "BG-SESSION-20260722-001"
+}
+```
+
+---
+
+# Audit APIs
+
+## Audit Timeline
+
+```
+GET /audit/{requestId}
+```
+
+### Response
+
+```json
+[
+  {
+    "timestamp": "2026-07-22T10:15:30",
+    "event": "REQUEST_CREATED"
+  },
+  {
+    "timestamp": "2026-07-22T10:16:10",
+    "event": "ENVIRONMENT_SNAPSHOT_CAPTURED"
+  },
+  {
+    "timestamp": "2026-07-22T10:16:45",
+    "event": "AI_RECOMMENDATION_GENERATED"
+  },
+  {
+    "timestamp": "2026-07-22T10:18:05",
+    "event": "APPROVED"
+  },
+  {
+    "timestamp": "2026-07-22T10:18:30",
+    "event": "SECRET_REVEALED"
+  }
+]
+```
+
+---
+
+# Health API
+
+## Application Health
+
+```
+GET /health
+```
+
+### Response
+
+```json
+{
+  "status": "UP"
+}
+```
+
+---
+
+# Standard HTTP Status Codes
+
+| Code | Description |
+|------|-------------|
+| 200 | Success |
+| 201 | Resource Created |
+| 400 | Bad Request |
+| 401 | Unauthorized |
+| 403 | Forbidden |
+| 404 | Resource Not Found |
+| 409 | Conflict |
+| 500 | Internal Server Error |
+
+---
+
+# API Security
 
 - JWT Authentication
-- Login
-- Token Validation
-
----
-
-## RBAC Service
-
-Provides role-based authorization.
-
-Supported Roles
-
-- Engineer
-- Approver
-- Administrator
-
----
-
-## Server Inventory Service
-
-Stores
-
-- Hostname
-- Environment
-- Owner
-- Criticality
-- IP Address
-
----
-
-## Secret Management Service
-
-Maintains
-
-- Secret Metadata
-- Vault Reference
-- Rotation Policy
-- Expiry Information
-
----
-
-## Break Glass Service
-
-Responsible for
-
-- Emergency Request
-- Incident Validation
-- Business Justification
-- Temporary Access Duration
-
----
-
-# Environment Snapshot Service
-
-Before the approval workflow starts, VaultGuardian AI automatically captures the current operational context.
-
-Collected information includes
-
-- Server Health
-- Running Kubernetes Pods
-- CPU Utilization
-- Memory Utilization
-- Disk Usage
-- Application Availability
-- Recent Production Alerts
-- Active Incident Details
-- Change Request Status
-- Deployment Status
-- Secret Dependency Graph
-- Business Criticality
-
-This snapshot is attached to the Break Glass request and becomes part of the approval package.
-
-Benefits
-
-- Better approval decisions
-- Reduced manual investigation
-- Faster incident response
-- Complete operational context
-
----
-
-# AxessAI Factory Integration
-
-VaultGuardian AI integrates with the enterprise AxessAI Factory platform.
-
-The AI evaluates
-
-- Production vs Non-Production
-- Business Criticality
-- Secret Sensitivity
-- Environment Snapshot
-- Incident Context
-- Security Policies
-- Historical Access
-- Approval History
-- Business Impact
-
-The AI generates
-
-- Risk Score
-- Confidence Score
-- Approval Recommendation
-- Explainable AI
-- Security Controls
-- AI Generated Summary
-
----
-
-# Approval Workflow
-
-```
-Engineer
-
-↓
-
-Break Glass Request
-
-↓
-
-Environment Snapshot
-
-↓
-
-AxessAI Factory
-
-↓
-
-AI Recommendation
-
-↓
-
-Approver Review
-
-↓
-
-Approve / Reject / Escalate
-
-↓
-
-Temporary Secret Reveal
-
-↓
-
-Audit Logging
-```
-
----
-
-# Offline Secret Vault
-
-Emergency credentials are securely stored in an encrypted offline vault.
-
-Security
-
-- AES-256 Encryption
-- Backend-only Access
-- Time-bound Secret Reveal
-- Automatic Expiry
-- Secret Rotation
-
----
-
-# Data Layer
-
-Operational data is stored in PostgreSQL.
-
-Stores
-
-- Servers
-- Secrets
-- Break Glass Requests
-- Approvals
-- Audit Logs
-
----
-
-# Immutable Audit Trail
-
-Every privileged action generates an audit event.
-
-Captured Events
-
-- Request Submitted
-- Environment Snapshot
-- AI Recommendation
-- Approval Decision
-- Secret Reveal
-- Session Expiry
-- Administrative Actions
-
-Future implementation can integrate WORM storage.
-
----
-
-# External Enterprise Integrations
-
-VaultGuardian AI is designed to integrate with
-
-- Incident Management
-- Monitoring Platforms
-- Change Management
-- ITAM / CMDB
-- Enterprise Vault
-- SIEM
-- Email
-- Microsoft Teams
-
----
-
-# Security Architecture
-
-Authentication
-
-- JWT
-
-Authorization
-
-- RBAC
-
-Encryption
-
-- AES-256
-
-Communication
-
-- HTTPS
-
-Auditing
-
-- Immutable Audit Trail
-
-AI Governance
-
-- Explainable AI
-- Confidence Score
-- Policy Validation
-
----
-
-# Technology Stack
-
-## Frontend
-
-- React
-- Vite
-- Material UI
-- Axios
-
-## Backend
-
-- Java 21
-- Spring Boot
+- Role Based Access Control (RBAC)
 - Spring Security
-- Spring Data JPA
-- JWT
-- Maven
-
-## Database
-
-- PostgreSQL
-
-## AI
-
-- AxessAI Factory
-
-## Deployment
-
-- Kubernetes
-- Docker
-- On-Premise
+- Input Validation
+- HTTPS Ready
+- Audit Logging
+- Time-bound Secret Access
+- Explainable AI Recommendations
 
 ---
 
-# End-to-End Request Flow
+# End-to-End API Flow
 
 ```
 Login
-      │
-      ▼
+   │
+   ▼
 Dashboard
-      │
-      ▼
-Select Server
-      │
-      ▼
-Select Secret
-      │
-      ▼
+   │
+   ▼
+Server Inventory
+   │
+   ▼
+Secret Inventory
+   │
+   ▼
 Break Glass Request
-      │
-      ▼
+   │
+   ▼
 Environment Snapshot
-      │
-      ▼
+   │
+   ▼
 AxessAI Factory
-      │
-      ▼
-AI Recommendation
-      │
-      ▼
+   │
+   ▼
 Approval Workflow
-      │
-      ▼
+   │
+   ▼
 Secret Reveal
-      │
-      ▼
-Audit Trail
+   │
+   ▼
+Audit Timeline
 ```
+
+---
+
+## Swagger
+
+Once the backend is running:
+
+```
+http://localhost:8080/swagger-ui/index.html
+```
+
+All REST APIs can be tested directly from the Swagger UI.
