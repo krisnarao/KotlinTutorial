@@ -1,141 +1,419 @@
-# VaultGuardian AI
+# VaultGuardian AI Architecture
 
-## Intelligent Offline Break Glass Platform
+## Intelligent Offline Break Glass Access Platform
 
-VaultGuardian AI is an AI-powered emergency privileged access platform designed for enterprise environments where traditional secret management systems (such as HashiCorp Vault or CyberArk) become unavailable during outages, cyber attacks, or disaster recovery scenarios.
+## Overview
 
-The platform enables secure emergency access to production secrets while ensuring AI-driven risk assessment, approval workflow, auditing, and governance.
+VaultGuardian AI is an enterprise-grade AI-powered Break Glass platform that provides secure emergency access to privileged credentials during outages, disaster recovery events, cyber incidents, and planned maintenance.
 
----
+Unlike traditional Break Glass solutions, VaultGuardian AI captures the current environment state, performs AI-assisted risk analysis using the enterprise AxessAI Factory platform, recommends the appropriate approval path, and maintains a complete immutable audit trail.
 
-# Problem Statement
-
-Modern enterprises rely heavily on centralized secret management platforms.
-
-During planned maintenance, production outages, ransomware attacks, or disaster recovery scenarios, these platforms may become unavailable.
-
-As a result:
-
-- Production engineers cannot access critical credentials.
-- Incident resolution time increases.
-- Manual break-glass processes are slow.
-- Lack of centralized auditing.
-- High risk of unauthorized privileged access.
+The solution is designed to operate even when centralized secret management platforms are unavailable.
 
 ---
 
-# Solution
+# Architecture Overview
 
-VaultGuardian AI provides an intelligent offline emergency access platform.
+```
+                        USERS
 
-The platform allows users to:
+ Engineers      Approvers      Administrators
 
-- Register production servers
-- Manage application secrets
-- Submit emergency Break Glass requests
-- Perform AI-based risk assessment
-- Route requests for approval
-- Provide explainable AI recommendations
-- Maintain complete audit history
+                    │
+                    ▼
+
+             React Frontend (Vite)
+
+ Dashboard
+ Secret Inventory
+ Break Glass
+ Environment Snapshot
+ AI Risk Assessment
+ Approval Workflow
+ Secret Reveal
+ Audit Timeline
+ Administration
+
+                    │
+                    ▼
+
+               REST APIs (JWT)
+
+                    │
+                    ▼
+
+        Spring Boot Backend Services
+
+ Authentication
+ User & RBAC
+ Server Inventory
+ Secret Management
+ Break Glass Service
+ Environment Snapshot Service
+ AxessAI Factory Integration
+ Approval Workflow
+ Audit & Reporting
+ Notification
+ Encryption
+ Offline Secret Manager
+
+      ┌──────────────┴──────────────┐
+
+      ▼                             ▼
+
+PostgreSQL                    Offline Secret Vault
+
+      │                             │
+
+      └──────────────┬──────────────┘
+
+                     ▼
+
+              AxessAI Factory
+
+        Risk Analysis
+        Context Analysis
+        Policy Validation
+        Approver Recommendation
+        Business Impact
+        AI Summary
+
+                     │
+
+                     ▼
+
+            Immutable Audit Trail
+```
 
 ---
 
-# Features
+# User Layer
 
-### Authentication
+The solution supports three enterprise personas.
+
+### Engineers
+
+- Submit Break Glass Requests
+- View AI Recommendation
+- Retrieve Temporary Secrets
+
+### Approvers
+
+- Review AI Recommendation
+- Approve or Reject Requests
+- Escalate Requests
+
+### Administrators
+
+- Manage Servers
+- Manage Secrets
+- Configure Policies
+- Manage Users
+
+---
+
+# Frontend Layer
+
+Developed using React and Material UI.
+
+Major modules include
+
+- Dashboard
+- Server Inventory
+- Secret Inventory
+- Break Glass
+- Environment Snapshot
+- AI Recommendation
+- Approval Workflow
+- Secret Reveal
+- Audit Timeline
+- Administration
+
+The frontend communicates with Spring Boot through secured REST APIs.
+
+---
+
+# Backend Layer
+
+Spring Boot provides all business services.
+
+## Authentication Service
 
 - JWT Authentication
-- Role Based Access
-- Spring Security
+- Login
+- Token Validation
 
-### Server Inventory
+---
 
-- Add Server
-- Update Server
-- Delete Server
-- Search Servers
+## RBAC Service
 
-### Secret Inventory
+Provides role-based authorization.
 
-- Secret Registration
+Supported Roles
+
+- Engineer
+- Approver
+- Administrator
+
+---
+
+## Server Inventory Service
+
+Stores
+
+- Hostname
+- Environment
+- Owner
+- Criticality
+- IP Address
+
+---
+
+## Secret Management Service
+
+Maintains
+
+- Secret Metadata
 - Vault Reference
-- Rotation Period
-- Secret Expiry
-- Secret Status
+- Rotation Policy
+- Expiry Information
 
-### Break Glass
+---
 
-- Emergency Access Request
-- Incident ID Validation
+## Break Glass Service
+
+Responsible for
+
+- Emergency Request
+- Incident Validation
 - Business Justification
-- Time Limited Access
+- Temporary Access Duration
 
-### AI Recommendation Engine
+---
 
-- AI Risk Score
-- Explainable AI
-- Business Impact Analysis
-- Security Controls
+# Environment Snapshot Service
+
+Before the approval workflow starts, VaultGuardian AI automatically captures the current operational context.
+
+Collected information includes
+
+- Server Health
+- Running Kubernetes Pods
+- CPU Utilization
+- Memory Utilization
+- Disk Usage
+- Application Availability
+- Recent Production Alerts
+- Active Incident Details
+- Change Request Status
+- Deployment Status
+- Secret Dependency Graph
+- Business Criticality
+
+This snapshot is attached to the Break Glass request and becomes part of the approval package.
+
+Benefits
+
+- Better approval decisions
+- Reduced manual investigation
+- Faster incident response
+- Complete operational context
+
+---
+
+# AxessAI Factory Integration
+
+VaultGuardian AI integrates with the enterprise AxessAI Factory platform.
+
+The AI evaluates
+
+- Production vs Non-Production
+- Business Criticality
+- Secret Sensitivity
+- Environment Snapshot
+- Incident Context
+- Security Policies
+- Historical Access
+- Approval History
+- Business Impact
+
+The AI generates
+
+- Risk Score
 - Confidence Score
+- Approval Recommendation
+- Explainable AI
+- Security Controls
 - AI Generated Summary
 
-### Approval Workflow
+---
 
-- Pending Requests
+# Approval Workflow
+
+```
+Engineer
+
+↓
+
+Break Glass Request
+
+↓
+
+Environment Snapshot
+
+↓
+
+AxessAI Factory
+
+↓
+
+AI Recommendation
+
+↓
+
+Approver Review
+
+↓
+
+Approve / Reject / Escalate
+
+↓
+
+Temporary Secret Reveal
+
+↓
+
+Audit Logging
+```
+
+---
+
+# Offline Secret Vault
+
+Emergency credentials are securely stored in an encrypted offline vault.
+
+Security
+
+- AES-256 Encryption
+- Backend-only Access
+- Time-bound Secret Reveal
+- Automatic Expiry
+- Secret Rotation
+
+---
+
+# Data Layer
+
+Operational data is stored in PostgreSQL.
+
+Stores
+
+- Servers
+- Secrets
+- Break Glass Requests
+- Approvals
+- Audit Logs
+
+---
+
+# Immutable Audit Trail
+
+Every privileged action generates an audit event.
+
+Captured Events
+
+- Request Submitted
+- Environment Snapshot
 - AI Recommendation
-- Approve
-- Reject
-- Escalate
+- Approval Decision
+- Secret Reveal
+- Session Expiry
+- Administrative Actions
+
+Future implementation can integrate WORM storage.
+
+---
+
+# External Enterprise Integrations
+
+VaultGuardian AI is designed to integrate with
+
+- Incident Management
+- Monitoring Platforms
+- Change Management
+- ITAM / CMDB
+- Enterprise Vault
+- SIEM
+- Email
+- Microsoft Teams
+
+---
+
+# Security Architecture
+
+Authentication
+
+- JWT
+
+Authorization
+
+- RBAC
+
+Encryption
+
+- AES-256
+
+Communication
+
+- HTTPS
+
+Auditing
+
+- Immutable Audit Trail
+
+AI Governance
+
+- Explainable AI
+- Confidence Score
+- Policy Validation
 
 ---
 
 # Technology Stack
 
+## Frontend
+
+- React
+- Vite
+- Material UI
+- Axios
+
 ## Backend
 
 - Java 21
-- Spring Boot 3.5
+- Spring Boot
 - Spring Security
 - Spring Data JPA
-- H2 Database
-- JWT Authentication
+- JWT
 - Maven
-- Swagger OpenAPI
 
-## Frontend
+## Database
 
-- React 19
-- Vite
-- Material UI
-- React Router
-- Axios
+- PostgreSQL
 
----
+## AI
 
-# Project Structure
+- AxessAI Factory
 
-```
-vaultguardian-ai
-│
-├── backend
-│     ├── controller
-│     ├── service
-│     ├── repository
-│     ├── entity
-│     ├── dto
-│     └── security
-│
-└── frontend
-      ├── components
-      ├── pages
-      ├── services
-      ├── utils
-      └── layouts
-```
+## Deployment
+
+- Kubernetes
+- Docker
+- On-Premise
 
 ---
 
-# Application Workflow
+# End-to-End Request Flow
 
 ```
 Login
@@ -144,192 +422,29 @@ Login
 Dashboard
       │
       ▼
-Server Inventory
+Select Server
       │
       ▼
-Secret Inventory
+Select Secret
       │
       ▼
 Break Glass Request
       │
       ▼
-AI Risk Assessment
+Environment Snapshot
       │
       ▼
-Approval Queue
+AxessAI Factory
       │
       ▼
-Approve / Reject
+AI Recommendation
       │
       ▼
-Audit Log
+Approval Workflow
+      │
+      ▼
+Secret Reveal
+      │
+      ▼
+Audit Trail
 ```
-
----
-
-# Backend Setup
-
-## Prerequisites
-
-- Java 21
-- Maven 3.9+
-- IntelliJ IDEA (Recommended)
-
-## Clone Repository
-
-```bash
-git clone <repository-url>
-```
-
-## Navigate
-
-```bash
-cd backend
-```
-
-## Build
-
-```bash
-mvn clean install
-```
-
-## Run
-
-```bash
-mvn spring-boot:run
-```
-
-Backend will start at
-
-```
-http://localhost:8080
-```
-
----
-
-# Swagger
-
-```
-http://localhost:8080/swagger-ui/index.html
-```
-
----
-
-# H2 Database
-
-```
-http://localhost:8080/h2-console
-```
-
-Database URL
-
-```
-jdbc:h2:mem:vaultguardian
-```
-
-Username
-
-```
-sa
-```
-
-Password
-
-```
-
-```
-
----
-
-# Frontend Setup
-
-## Prerequisites
-
-- Node.js 20+
-- npm
-
-## Navigate
-
-```bash
-cd frontend
-```
-
-## Install
-
-```bash
-npm install
-```
-
-## Run
-
-```bash
-npm run dev
-```
-
-Application URL
-
-```
-http://localhost:5173
-```
-
----
-
-# Default Login
-
-```
-Username
-
-admin
-
-Password
-
-admin123
-```
-
----
-
-# AI Risk Factors
-
-VaultGuardian AI evaluates requests based on multiple parameters:
-
-- Environment
-- Server Criticality
-- Secret Sensitivity
-- Incident Validation
-- Access Duration
-- Business Impact
-- Historical Intelligence
-
-The AI engine generates:
-
-- Risk Score
-- Confidence Score
-- AI Recommendation
-- Security Controls
-- Explainable Decision
-
----
-
-# Future Enhancements
-
-- HashiCorp Vault Integration
-- CyberArk Integration
-- Active Directory Integration
-- MFA Authentication
-- Session Recording
-- AI Anomaly Detection
-- Kubernetes Secret Integration
-- Email & Teams Notifications
-- Audit Dashboard
-
----
-
-# Team
-
-Team Vector Minds
-
-Project
-
-VaultGuardian AI
-
-Accelerate 3.0 Pre Hackathon 2026
