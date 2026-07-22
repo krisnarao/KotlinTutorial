@@ -1,258 +1,47 @@
+import { Box, Container } from "@mui/material";
 
-import {
-  AppBar,
-  Toolbar,
-  Typography,
-  Avatar,
-  Box,
-  Chip
-} from "@mui/material";
+import Sidebar from "../components/layout/Sidebar";
+import Header from "../components/layout/Header";
+import HeroSection from "../components/landing/HeroSection";
+import StatsCards from "../components/landing/StatsCards";
 
-import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
-
-function Header() {
-
+function LandingPage() {
   return (
-
-    <AppBar
-      position="static"
-      elevation={0}
+    <Box
       sx={{
-        background: "#ffffff",
-        color: "#1F2937",
-        borderRadius: 3,
-        mb: 4
+        display: "flex",
+        minHeight: "100vh",
+        bgcolor: "#F4F7FB",
       }}
     >
+      <Sidebar />
 
-      <Toolbar>
+      <Box
+        sx={{
+          flex: 1,
+          p: 4,
+          overflow: "auto",
+        }}
+      >
+        <Header />
 
-        <Typography
-          variant="h5"
-          fontWeight={700}
-        >
-          VaultGuardian AI
-        </Typography>
+        <Container maxWidth="xl">
+          <HeroSection />
 
-        <Box sx={{ flexGrow: 1 }} />
-
-        <Chip
-          color="error"
-          icon={<NotificationsActiveIcon />}
-          label="Severity 1"
-          sx={{ mr: 3 }}
-        />
-
-        <Avatar
-          sx={{
-            bgcolor: "#0F8C4A"
-          }}
-        >
-          A
-        </Avatar>
-
-      </Toolbar>
-
-    </AppBar>
-
+          <StatsCards />
+        </Container>
+      </Box>
+    </Box>
   );
-
 }
 
-export default Header;
+export default LandingPage;
 
-...import {
-    Typography,
-    Button,
-    Stack
-} from "@mui/material";
+...
+import LandingPage from "./pages/LandingPage";
 
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import DashboardIcon from "@mui/icons-material/Dashboard";
-
-function HeroSection() {
-
-    return (
-
-        <>
-
-            <Typography
-                variant="h2"
-                fontWeight={700}
-            >
-
-                From outage escalation
-                <br />
-                to governed
-                <br />
-                credential recovery.
-
-            </Typography>
-
-            <Typography
-                mt={3}
-                maxWidth={700}
-                color="text.secondary"
-                lineHeight={1.8}
-            >
-
-                VaultGuardian AI provides secure offline
-                privileged access, AI-assisted approvals,
-                audit-ready governance and rapid production
-                recovery.
-
-            </Typography>
-
-            <Stack
-                direction="row"
-                spacing={2}
-                mt={4}
-            >
-
-                <Button
-                    size="large"
-                    variant="contained"
-                    startIcon={<PlayArrowIcon />}
-                >
-                    Launch Request Flow
-                </Button>
-
-                <Button
-                    size="large"
-                    variant="outlined"
-                    startIcon={<DashboardIcon />}
-                >
-                    Operations Dashboard
-                </Button>
-
-            </Stack>
-
-        </>
-
-    );
-
+function App() {
+  return <LandingPage />;
 }
 
-export default HeroSection;
-
-....
-
-import {
-
-    Card,
-    CardContent,
-    Grid,
-    Typography
-
-} from "@mui/material";
-
-const stats = [
-
-    {
-
-        title: "Primary Screens",
-
-        value: "8"
-
-    },
-
-    {
-
-        title: "Approver Roles",
-
-        value: "2"
-
-    },
-
-    {
-
-        title: "Timed Access",
-
-        value: "15m"
-
-    },
-
-    {
-
-        title: "AI Risk Score",
-
-        value: "78"
-
-    }
-
-];
-
-function StatsCards() {
-
-    return (
-
-        <Grid
-            container
-            spacing={3}
-            mt={3}
-        >
-
-            {
-
-                stats.map((item) => (
-
-                    <Grid
-                        item
-                        xs={12}
-                        md={3}
-                        key={item.title}
-                    >
-
-                        <Card
-                            sx={{
-                                borderRadius: 4,
-                                textAlign: "center",
-                                transition: ".3s",
-                                "&:hover": {
-
-                                    transform: "translateY(-6px)"
-
-                                }
-
-                            }}
-                        >
-
-                            <CardContent>
-
-                                <Typography
-                                    variant="h3"
-                                    color="primary"
-                                    fontWeight={700}
-                                >
-
-                                    {item.value}
-
-                                </Typography>
-
-                                <Typography
-                                    mt={2}
-                                >
-
-                                    {item.title}
-
-                                </Typography>
-
-                            </CardContent>
-
-                        </Card>
-
-                    </Grid>
-
-                ))
-
-            }
-
-        </Grid>
-
-    );
-
-}
-
-export default StatsCards;
-
-....
+export default App;
