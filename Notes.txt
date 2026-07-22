@@ -1,541 +1,258 @@
-components/layout/Sidebar.jsx
+
 import {
-  Box,
+  AppBar,
+  Toolbar,
   Typography,
-  Card,
-  CardContent,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
+  Avatar,
+  Box,
   Chip
 } from "@mui/material";
 
-import DashboardIcon from "@mui/icons-material/Dashboard";
-import LoginIcon from "@mui/icons-material/Login";
-import VpnKeyIcon from "@mui/icons-material/VpnKey";
-import LockOpenIcon from "@mui/icons-material/LockOpen";
-import ApprovalIcon from "@mui/icons-material/Approval";
-import SecurityIcon from "@mui/icons-material/Security";
-import SmartToyIcon from "@mui/icons-material/SmartToy";
-import AssessmentIcon from "@mui/icons-material/Assessment";
-import StorageIcon from "@mui/icons-material/Storage";
+import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 
-const menuItems = [
-  {
-    text: "Login",
-    icon: <LoginIcon />,
-    path: "/login"
-  },
-  {
-    text: "Dashboard",
-    icon: <DashboardIcon />,
-    path: "/dashboard"
-  },
-  {
-    text: "Server Inventory",
-    icon: <StorageIcon />,
-    path: "/servers"
-  },
-  {
-    text: "Secret Inventory",
-    icon: <VpnKeyIcon />,
-    path: "/secrets"
-  },
-  {
-    text: "Break Glass",
-    icon: <LockOpenIcon />,
-    path: "/breakglass"
-  },
-  {
-    text: "Approvals",
-    icon: <ApprovalIcon />,
-    path: "/approvals"
-  },
-  {
-    text: "AI Advisor",
-    icon: <SmartToyIcon />,
-    path: "/advisor"
-  },
-  {
-    text: "Audit Trail",
-    icon: <AssessmentIcon />,
-    path: "/audit"
-  }
-];
-
-function Sidebar() {
+function Header() {
 
   return (
 
-    <Box
+    <AppBar
+      position="static"
+      elevation={0}
       sx={{
-        width: 320,
-        minHeight: "100vh",
-        background:
-          "linear-gradient(180deg,#061B44 0%,#0A3C69 45%,#148A43 100%)",
-        color: "white",
-        display: "flex",
-        flexDirection: "column",
-        padding: 3,
-        boxSizing: "border-box"
+        background: "#ffffff",
+        color: "#1F2937",
+        borderRadius: 3,
+        mb: 4
       }}
     >
 
-      <Chip
-        label="PRODUCT UI PROTOTYPE"
-        sx={{
-          alignSelf: "flex-start",
-          background: "rgba(255,255,255,.12)",
-          color: "white",
-          fontWeight: 600,
-          mb: 3
-        }}
-      />
-
-      <Typography
-        variant="h4"
-        sx={{
-          fontWeight: 700
-        }}
-      >
-        VaultGuardian AI
-      </Typography>
-
-      <Typography
-        sx={{
-          mt: 2,
-          opacity: .9,
-          lineHeight: 1.8
-        }}
-      >
-        Offline break-glass platform for high-pressure incidents where
-        production recovery depends on governed emergency access.
-      </Typography>
-
-      <Card
-        sx={{
-          mt: 4,
-          borderRadius: 4,
-          background: "rgba(255,255,255,.12)",
-          color: "white",
-          backdropFilter: "blur(10px)"
-        }}
-      >
-        <CardContent>
-
-          <Typography
-            variant="body2"
-            sx={{ opacity: .8 }}
-          >
-            Active Outage Mode
-          </Typography>
-
-          <Typography
-            variant="h4"
-            sx={{
-              mt: 1,
-              fontWeight: 700
-            }}
-          >
-            Severity 1
-          </Typography>
-
-          <Typography
-            sx={{
-              mt: 1,
-              fontSize: 14,
-              opacity: .85
-            }}
-          >
-            Central Vault unavailable.
-            Offline recovery workflows are now primary.
-          </Typography>
-
-        </CardContent>
-
-      </Card>
-
-      <List
-        sx={{
-          mt: 4
-        }}
-      >
-
-        {menuItems.map((item, index) => (
-
-          <ListItemButton
-            key={item.text}
-            sx={{
-              borderRadius: 3,
-              color: "white",
-              mb: 1.2,
-              py: 1.4,
-              "&:hover": {
-                background: "rgba(255,255,255,.12)"
-              }
-            }}
-          >
-
-            <ListItemIcon
-              sx={{
-                color: "white",
-                minWidth: 42
-              }}
-            >
-              {item.icon}
-            </ListItemIcon>
-
-            <ListItemText
-              primary={`${index + 1}. ${item.text}`}
-            />
-
-          </ListItemButton>
-
-        ))}
-
-      </List>
-
-      <Box sx={{ flexGrow: 1 }} />
-
-      <Card
-        sx={{
-          mt: 2,
-          borderRadius: 4,
-          background: "rgba(255,255,255,.10)",
-          color: "white"
-        }}
-      >
-
-        <CardContent>
-
-          <Typography
-            variant="subtitle2"
-            gutterBottom
-          >
-            <SecurityIcon
-              sx={{
-                mr: 1,
-                verticalAlign: "middle"
-              }}
-            />
-
-            Emergency Mode
-
-          </Typography>
-
-          <Typography
-            sx={{
-              fontSize: 13,
-              opacity: .85
-            }}
-          >
-            All privileged actions are monitored,
-            AI risk scored,
-            time limited and fully audited.
-
-          </Typography>
-
-        </CardContent>
-
-      </Card>
-
-    </Box>
-
-  );
-
-}
-
-export default Sidebar;
-....
-src/pages/LandingPage.jsx
-import {
-  Box,
-  Grid,
-  Typography,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Stack
-} from "@mui/material";
-
-import SecurityIcon from "@mui/icons-material/Security";
-import LockOpenIcon from "@mui/icons-material/LockOpen";
-import StorageIcon from "@mui/icons-material/Storage";
-import SmartToyIcon from "@mui/icons-material/SmartToy";
-import ShieldIcon from "@mui/icons-material/Shield";
-import InsightsIcon from "@mui/icons-material/Insights";
-
-import Sidebar from "../components/layout/Sidebar";
-
-function LandingPage() {
-
-  const cards = [
-    {
-      title: "Offline Break Glass",
-      icon: <LockOpenIcon fontSize="large" color="primary" />,
-      desc: "Secure emergency access during production outages."
-    },
-    {
-      title: "Secret Inventory",
-      icon: <StorageIcon fontSize="large" color="primary" />,
-      desc: "Manage passwords, certificates and API keys."
-    },
-    {
-      title: "AI Risk Advisor",
-      icon: <SmartToyIcon fontSize="large" color="primary" />,
-      desc: "Receive AI powered approval recommendations."
-    },
-    {
-      title: "Zero Trust Security",
-      icon: <ShieldIcon fontSize="large" color="primary" />,
-      desc: "Least privilege access with complete audit trail."
-    }
-  ];
-
-  return (
-
-    <Box
-      sx={{
-        display: "flex",
-        minHeight: "100vh",
-        bgcolor: "#F5F7FB"
-      }}
-    >
-
-      <Sidebar />
-
-      <Box
-        sx={{
-          flex: 1,
-          p: 5
-        }}
-      >
-
-        <Stack
-          direction="row"
-          spacing={2}
-          mb={3}
-        >
-          <Chip label="Region : APAC" color="primary" />
-          <Chip label="User : Admin" color="success" />
-          <Chip label="Incident Mode : OFF" color="warning" />
-        </Stack>
+      <Toolbar>
 
         <Typography
-          variant="h3"
+          variant="h5"
           fontWeight={700}
         >
           VaultGuardian AI
         </Typography>
 
-        <Typography
+        <Box sx={{ flexGrow: 1 }} />
+
+        <Chip
+          color="error"
+          icon={<NotificationsActiveIcon />}
+          label="Severity 1"
+          sx={{ mr: 3 }}
+        />
+
+        <Avatar
           sx={{
-            mt: 2,
-            color: "text.secondary",
-            maxWidth: 850,
-            lineHeight: 1.8
+            bgcolor: "#0F8C4A"
           }}
         >
-          Enterprise Offline Break-Glass Platform for emergency privileged
-          access, secret inventory, approvals, AI recommendations,
-          governance and complete audit compliance.
-        </Typography>
+          A
+        </Avatar>
 
-        <Stack
-          direction="row"
-          spacing={2}
-          mt={4}
-        >
+      </Toolbar>
 
-          <Button
-            variant="contained"
-            size="large"
-          >
-            Launch Break Glass
-          </Button>
-
-          <Button
-            variant="outlined"
-            size="large"
-          >
-            Open Dashboard
-          </Button>
-
-        </Stack>
-
-        <Grid
-          container
-          spacing={3}
-          mt={5}
-        >
-
-          {cards.map((card) => (
-
-            <Grid
-              item
-              xs={12}
-              md={6}
-              lg={3}
-              key={card.title}
-            >
-
-              <Card
-                sx={{
-                  height: 230,
-                  borderRadius: 4,
-                  transition: ".3s",
-                  "&:hover": {
-                    transform: "translateY(-6px)",
-                    boxShadow: 8
-                  }
-                }}
-              >
-
-                <CardContent>
-
-                  {card.icon}
-
-                  <Typography
-                    variant="h6"
-                    mt={2}
-                    fontWeight={700}
-                  >
-                    {card.title}
-                  </Typography>
-
-                  <Typography
-                    mt={2}
-                    color="text.secondary"
-                  >
-                    {card.desc}
-                  </Typography>
-
-                </CardContent>
-
-              </Card>
-
-            </Grid>
-
-          ))}
-
-        </Grid>
-
-        <Grid
-          container
-          spacing={3}
-          mt={3}
-        >
-
-          <Grid
-            item
-            xs={12}
-            md={6}
-          >
-
-            <Card
-              sx={{
-                borderRadius: 4,
-                height: 250
-              }}
-            >
-
-              <CardContent>
-
-                <Typography
-                  variant="h5"
-                  fontWeight={700}
-                  gutterBottom
-                >
-                  <SecurityIcon sx={{ mr: 1 }} />
-                  Security Overview
-                </Typography>
-
-                <Typography mt={3}>
-                  ✔ Zero Trust Architecture
-                </Typography>
-
-                <Typography mt={2}>
-                  ✔ Offline Vault Recovery
-                </Typography>
-
-                <Typography mt={2}>
-                  ✔ Multi-level Approval
-                </Typography>
-
-                <Typography mt={2}>
-                  ✔ Time Limited Access
-                </Typography>
-
-                <Typography mt={2}>
-                  ✔ Complete Audit Trail
-                </Typography>
-
-              </CardContent>
-
-            </Card>
-
-          </Grid>
-
-          <Grid
-            item
-            xs={12}
-            md={6}
-          >
-
-            <Card
-              sx={{
-                borderRadius: 4,
-                height: 250
-              }}
-            >
-
-              <CardContent>
-
-                <Typography
-                  variant="h5"
-                  fontWeight={700}
-                  gutterBottom
-                >
-                  <InsightsIcon sx={{ mr: 1 }} />
-                  Platform Statistics
-                </Typography>
-
-                <Typography mt={3}>
-                  Total Servers : 120
-                </Typography>
-
-                <Typography mt={2}>
-                  Managed Secrets : 3,245
-                </Typography>
-
-                <Typography mt={2}>
-                  Pending Requests : 4
-                </Typography>
-
-                <Typography mt={2}>
-                  Today's Approvals : 16
-                </Typography>
-
-                <Typography mt={2}>
-                  AI Risk Score : LOW
-                </Typography>
-
-              </CardContent>
-
-            </Card>
-
-          </Grid>
-
-        </Grid>
-
-      </Box>
-
-    </Box>
+    </AppBar>
 
   );
 
 }
 
-export default LandingPage;
+export default Header;
+
+...import {
+    Typography,
+    Button,
+    Stack
+} from "@mui/material";
+
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+
+function HeroSection() {
+
+    return (
+
+        <>
+
+            <Typography
+                variant="h2"
+                fontWeight={700}
+            >
+
+                From outage escalation
+                <br />
+                to governed
+                <br />
+                credential recovery.
+
+            </Typography>
+
+            <Typography
+                mt={3}
+                maxWidth={700}
+                color="text.secondary"
+                lineHeight={1.8}
+            >
+
+                VaultGuardian AI provides secure offline
+                privileged access, AI-assisted approvals,
+                audit-ready governance and rapid production
+                recovery.
+
+            </Typography>
+
+            <Stack
+                direction="row"
+                spacing={2}
+                mt={4}
+            >
+
+                <Button
+                    size="large"
+                    variant="contained"
+                    startIcon={<PlayArrowIcon />}
+                >
+                    Launch Request Flow
+                </Button>
+
+                <Button
+                    size="large"
+                    variant="outlined"
+                    startIcon={<DashboardIcon />}
+                >
+                    Operations Dashboard
+                </Button>
+
+            </Stack>
+
+        </>
+
+    );
+
+}
+
+export default HeroSection;
+
+....
+
+import {
+
+    Card,
+    CardContent,
+    Grid,
+    Typography
+
+} from "@mui/material";
+
+const stats = [
+
+    {
+
+        title: "Primary Screens",
+
+        value: "8"
+
+    },
+
+    {
+
+        title: "Approver Roles",
+
+        value: "2"
+
+    },
+
+    {
+
+        title: "Timed Access",
+
+        value: "15m"
+
+    },
+
+    {
+
+        title: "AI Risk Score",
+
+        value: "78"
+
+    }
+
+];
+
+function StatsCards() {
+
+    return (
+
+        <Grid
+            container
+            spacing={3}
+            mt={3}
+        >
+
+            {
+
+                stats.map((item) => (
+
+                    <Grid
+                        item
+                        xs={12}
+                        md={3}
+                        key={item.title}
+                    >
+
+                        <Card
+                            sx={{
+                                borderRadius: 4,
+                                textAlign: "center",
+                                transition: ".3s",
+                                "&:hover": {
+
+                                    transform: "translateY(-6px)"
+
+                                }
+
+                            }}
+                        >
+
+                            <CardContent>
+
+                                <Typography
+                                    variant="h3"
+                                    color="primary"
+                                    fontWeight={700}
+                                >
+
+                                    {item.value}
+
+                                </Typography>
+
+                                <Typography
+                                    mt={2}
+                                >
+
+                                    {item.title}
+
+                                </Typography>
+
+                            </CardContent>
+
+                        </Card>
+
+                    </Grid>
+
+                ))
+
+            }
+
+        </Grid>
+
+    );
+
+}
+
+export default StatsCards;
+
+....
