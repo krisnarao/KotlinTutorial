@@ -1,169 +1,196 @@
-const getServerList = async () => {
-    const response = await api.get("/api/servers");
+import api from "./api";
+
+const API_URL = "/api/secrets";
+
+const getAllSecrets = async () => {
+    const response = await api.get(API_URL);
     return response.data;
+};
+
+const getSecretById = async (id) => {
+    const response = await api.get(`${API_URL}/${id}`);
+    return response.data;
+};
+
+const createSecret = async (secret) => {
+    const response = await api.post(API_URL, secret);
+    return response.data;
+};
+
+const updateSecret = async (id, secret) => {
+    const response = await api.put(`${API_URL}/${id}`, secret);
+    return response.data;
+};
+
+const deleteSecret = async (id) => {
+    return await api.delete(`${API_URL}/${id}`);
 };
 
 export default {
-    getAllServers,
-    getServerById,
-    createServer,
-    updateServer,
-    deleteServer,
-    getServerList
+    getAllSecrets,
+    getSecretById,
+    createSecret,
+    updateSecret,
+    deleteSecret
 };
 
-import api from "./api";
-
-const API_URL="/api/secrets";
-
-const getAllSecrets=async()=>{
-
-    const response=await api.get(API_URL);
-
-    return response.data;
-
-}
-
-export default{
-
-    getAllSecrets
-
-}
-.....
-
+...
 import { useEffect, useState } from "react";
 import {
-  Card,
-  CardContent,
-  Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
   Grid,
   TextField,
   MenuItem,
-  Button,
-  Alert,
-  CircularProgress,
+  Switch,
+  FormControlLabel,
 } from "@mui/material";
 
-import serverService from "../../services/serverService";
-import secretService from "../../services/secretService";
-
-const durations = [15, 30, 60, 120];
+const secretTypes = [
+  "PASSWORD",
+  "API_KEY",
+  "CERTIFICATE",
+  "TOKEN",
+  "SSH_KEY",
+];
 
 const initialForm = {
+  secretName: "",
+  vaultReference: "",
+  secretType: "",
+  rotationDays: 90,
   serverId: "",
-  secretId: "",
-  incidentId: "",
-  duration: 30,
-  justification: "",
-  requestedBy: "admin",
+  active: true,
 };
 
-function RequestForm() {
+function SecretDialog({
+  open,
+  onClose,
+  onSave,
+  secret,
+  servers = [],
+}) {
   const [form, setForm] = useState(initialForm);
 
-  const [servers, setServers] = useState([]);
-  const [allSecrets, setAllSecrets] = useState([]);
-  const [filteredSecrets, setFilteredSecrets] = useState([]);
-
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-
-      const serverResponse = await serverService.getServerList();
-      setServers(serverResponse);
-
-      const secretResponse = await secretService.getAllSecrets();
-      setAllSecrets(secretResponse);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+    if (secret) {
+      setForm({
+        secretName: secret.secretName || "",
+        vaultReference: secret.vaultReference || "",
+        secretType: secret.secretType || "",
+        rotationDays: secret.rotationDays || 90,
+        serverId: secret.serverId || "",
+        active:
+          secret.active === undefined ? true : secret.active,
+      });
+    } else {
+      setForm(initialForm);
     }
-  };
+  }, [secret]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
 
-    const updatedForm = {
-      ...form,
+    setForm((prev) => ({
+      ...prev,
       [name]: value,
-    };
+    }));
+  };
 
-    if (name === "serverId") {
-      const selectedServer = servers.find(
-        (server) => server.id === Number(value)
-      );
-
-      if (selectedServer) {
-        const secrets = allSecrets.filter(
-          (secret) => secret.serverName === selectedServer.hostname
-        );
-
-        setFilteredSecrets(secrets);
-      } else {
-        setFilteredSecrets([]);
-      }
-
-      updatedForm.secretId = "";
-    }
-
-    setForm(updatedForm);
+  const handleSwitch = (event) => {
+    setForm((prev) => ({
+      ...prev,
+      active: event.target.checked,
+    }));
   };
 
   const handleSubmit = () => {
     if (
-      !form.serverId ||
-      !form.secretId ||
-      !form.incidentId ||
-      !form.justification
+      !form.secretName ||
+      !form.vaultReference ||
+      !form.secretType ||
+      !form.serverId
     ) {
       alert("Please fill all mandatory fields.");
       return;
     }
 
-    console.log("Break Glass Request", form);
-
-    // TODO:
-    // breakGlassService.createRequest(form);
+    onSave(form);
   };
 
-  if (loading) {
-    return (
-      <Card sx={{ borderRadius: 4 }}>
-        <CardContent
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            p: 5,
-          }}
-        >
-          <CircularProgress />
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <Card sx={{ borderRadius: 4 }}>
-      <CardContent>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="md"
+    >
+      <DialogTitle>
+        {secret ? "Edit Secret" : "Add Secret"}
+      </DialogTitle>
 
-        <Typography variant="h5" fontWeight="bold" gutterBottom>
-          Emergency Break Glass Request
-        </Typography>
-
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          Emergency privileged access is time limited and fully audited.
-        </Alert>
-
-        <Grid container spacing={2}>
+      <DialogContent dividers>
+        <Grid container spacing={2} sx={{ mt: 0.5 }}>
 
           <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              required
+              label="Secret Name"
+              name="secretName"
+              value={form.secretName}
+              onChange={handleChange}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              required
+              label="Vault Reference"
+              name="vaultReference"
+              value={form.vaultReference}
+              onChange={handleChange}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <TextField
+              select
+              fullWidth
+              required
+              label="Secret Type"
+              name="secretType"
+              value={form.secretType}
+              onChange={handleChange}
+            >
+              {secretTypes.map((type) => (
+                <MenuItem
+                  key={type}
+                  value={type}
+                >
+                  {type}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              required
+              type="number"
+              label="Rotation Days"
+              name="rotationDays"
+              value={form.rotationDays}
+              onChange={handleChange}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
             <TextField
               select
               fullWidth
@@ -174,108 +201,626 @@ function RequestForm() {
               onChange={handleChange}
             >
               {servers.map((server) => (
-                <MenuItem key={server.id} value={server.id}>
+                <MenuItem
+                  key={server.id}
+                  value={server.id}
+                >
                   {server.hostname}
                 </MenuItem>
               ))}
             </TextField>
           </Grid>
 
-          <Grid item xs={12} md={6}>
-            <TextField
-              select
-              fullWidth
-              required
-              disabled={!form.serverId}
-              label="Secret"
-              name="secretId"
-              value={form.secretId}
-              onChange={handleChange}
-            >
-              {filteredSecrets.map((secret) => (
-                <MenuItem
-                  key={secret.id}
-                  value={secret.id}
-                >
-                  {secret.secretName}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
+          {secret && (
+            <>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Last Rotated"
+                  value={secret.lastRotated || ""}
+                  InputProps={{
+                    readOnly: true,
+                  }}
+                />
+              </Grid>
 
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              required
-              label="Incident ID"
-              name="incidentId"
-              value={form.incidentId}
-              onChange={handleChange}
-              placeholder="INC-2026-001245"
-            />
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <TextField
-              select
-              fullWidth
-              label="Access Duration"
-              name="duration"
-              value={form.duration}
-              onChange={handleChange}
-            >
-              {durations.map((duration) => (
-                <MenuItem
-                  key={duration}
-                  value={duration}
-                >
-                  {duration} Minutes
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Expiry Date"
+                  value={secret.expiryDate || ""}
+                  InputProps={{
+                    readOnly: true,
+                  }}
+                />
+              </Grid>
+            </>
+          )}
 
           <Grid item xs={12}>
-            <TextField
-              fullWidth
-              required
-              multiline
-              rows={4}
-              label="Business Justification"
-              name="justification"
-              value={form.justification}
-              onChange={handleChange}
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.active}
+                  onChange={handleSwitch}
+                />
+              }
+              label="Active"
             />
-          </Grid>
-
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Requested By"
-              value={form.requestedBy}
-              InputProps={{
-                readOnly: true,
-              }}
-            />
-          </Grid>
-
-          <Grid item xs={12}>
-            <Button
-              variant="contained"
-              size="large"
-              fullWidth
-              sx={{ height: 50 }}
-              onClick={handleSubmit}
-            >
-              Submit Break Glass Request
-            </Button>
           </Grid>
 
         </Grid>
+      </DialogContent>
 
-      </CardContent>
-    </Card>
+      <DialogActions>
+        <Button
+          onClick={onClose}
+          color="inherit"
+        >
+          Cancel
+        </Button>
+
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+        >
+          {secret ? "Update Secret" : "Save Secret"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
-export default RequestForm;
+export default SecretDialog;
+
+
+....
+import {
+  Paper,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Chip,
+  IconButton,
+  Tooltip,
+  Typography,
+} from "@mui/material";
+
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+
+function getStatus(secret) {
+  if (!secret.active) {
+    return {
+      label: "Inactive",
+      color: "default",
+    };
+  }
+
+  if (!secret.expiryDate) {
+    return {
+      label: "Active",
+      color: "success",
+    };
+  }
+
+  const expiry = new Date(secret.expiryDate);
+  const today = new Date();
+
+  const diff = Math.ceil(
+    (expiry - today) / (1000 * 60 * 60 * 24)
+  );
+
+  if (diff < 0) {
+    return {
+      label: "Expired",
+      color: "error",
+    };
+  }
+
+  if (diff <= 30) {
+    return {
+      label: "Expiring",
+      color: "warning",
+    };
+  }
+
+  return {
+    label: "Active",
+    color: "success",
+  };
+}
+
+function SecretTable({
+  secrets,
+  onEdit,
+  onDelete,
+}) {
+  return (
+    <Paper
+      elevation={3}
+      sx={{
+        borderRadius: 3,
+        overflow: "hidden",
+      }}
+    >
+      <Table>
+
+        <TableHead>
+
+          <TableRow
+            sx={{
+              backgroundColor: "#f5f5f5",
+            }}
+          >
+            <TableCell><b>Secret Name</b></TableCell>
+
+            <TableCell><b>Vault Reference</b></TableCell>
+
+            <TableCell><b>Type</b></TableCell>
+
+            <TableCell><b>Server</b></TableCell>
+
+            <TableCell align="center">
+              <b>Rotation</b>
+            </TableCell>
+
+            <TableCell>
+              <b>Last Rotated</b>
+            </TableCell>
+
+            <TableCell>
+              <b>Expiry</b>
+            </TableCell>
+
+            <TableCell align="center">
+              <b>Status</b>
+            </TableCell>
+
+            <TableCell align="center">
+              <b>Actions</b>
+            </TableCell>
+
+          </TableRow>
+
+        </TableHead>
+
+        <TableBody>
+
+          {secrets.length === 0 && (
+            <TableRow>
+
+              <TableCell
+                colSpan={9}
+                align="center"
+              >
+                <Typography
+                  color="text.secondary"
+                >
+                  No secrets found
+                </Typography>
+              </TableCell>
+
+            </TableRow>
+          )}
+
+          {secrets.map((secret) => {
+
+            const status = getStatus(secret);
+
+            return (
+
+              <TableRow
+                hover
+                key={secret.id}
+              >
+
+                <TableCell>
+                  {secret.secretName}
+                </TableCell>
+
+                <TableCell>
+                  {secret.vaultReference}
+                </TableCell>
+
+                <TableCell>
+                  {secret.secretType}
+                </TableCell>
+
+                <TableCell>
+                  {secret.serverName}
+                </TableCell>
+
+                <TableCell align="center">
+                  {secret.rotationDays} Days
+                </TableCell>
+
+                <TableCell>
+                  {secret.lastRotated}
+                </TableCell>
+
+                <TableCell>
+                  {secret.expiryDate}
+                </TableCell>
+
+                <TableCell align="center">
+
+                  <Chip
+                    label={status.label}
+                    color={status.color}
+                    size="small"
+                  />
+
+                </TableCell>
+
+                <TableCell align="center">
+
+                  <Tooltip title="Edit">
+
+                    <IconButton
+                      color="primary"
+                      onClick={() => onEdit(secret)}
+                    >
+                      <EditIcon />
+                    </IconButton>
+
+                  </Tooltip>
+
+                  <Tooltip title="Delete">
+
+                    <IconButton
+                      color="error"
+                      onClick={() => onDelete(secret)}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+
+                  </Tooltip>
+
+                </TableCell>
+
+              </TableRow>
+
+            );
+
+          })}
+
+        </TableBody>
+
+      </Table>
+
+    </Paper>
+  );
+}
+
+export default SecretTable;
+....
+
+import { useEffect, useState } from "react";
+import {
+  Box,
+  Container,
+  Typography,
+  Stack,
+  Button,
+  TextField,
+  CircularProgress,
+  Snackbar,
+  Alert,
+} from "@mui/material";
+
+import AddIcon from "@mui/icons-material/Add";
+import RefreshIcon from "@mui/icons-material/Refresh";
+
+import Sidebar from "../components/layout/Sidebar";
+import Header from "../components/layout/Header";
+
+import SecretTable from "../components/secret/SecretTable";
+import SecretDialog from "../components/secret/SecretDialog";
+
+import secretService from "../services/secretService";
+import serverService from "../services/serverService";
+
+function SecretInventory() {
+
+  const [secrets, setSecrets] = useState([]);
+  const [filteredSecrets, setFilteredSecrets] = useState([]);
+
+  const [servers, setServers] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+
+  const [search, setSearch] = useState("");
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const [selectedSecret, setSelectedSecret] = useState(null);
+
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useEffect(() => {
+
+    if (!search) {
+
+      setFilteredSecrets(secrets);
+
+      return;
+
+    }
+
+    const filtered = secrets.filter((secret) =>
+      secret.secretName.toLowerCase().includes(search.toLowerCase())
+    );
+
+    setFilteredSecrets(filtered);
+
+  }, [search, secrets]);
+
+  const loadData = async () => {
+
+    try {
+
+      setLoading(true);
+
+      const secretResponse = await secretService.getAllSecrets();
+
+      setSecrets(secretResponse);
+
+      setFilteredSecrets(secretResponse);
+
+      const serverResponse = await serverService.getServerList();
+
+      setServers(serverResponse);
+
+    } catch (err) {
+
+      console.error(err);
+
+      setSnackbar({
+        open: true,
+        message: "Failed to load secrets",
+        severity: "error",
+      });
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
+  };
+
+  const handleAdd = () => {
+
+    setSelectedSecret(null);
+
+    setDialogOpen(true);
+
+  };
+
+  const handleEdit = (secret) => {
+
+    setSelectedSecret(secret);
+
+    setDialogOpen(true);
+
+  };
+
+  const handleDelete = async (secret) => {
+
+    if (!window.confirm(`Delete ${secret.secretName}?`)) return;
+
+    try {
+
+      await secretService.deleteSecret(secret.id);
+
+      loadData();
+
+      setSnackbar({
+        open: true,
+        message: "Secret deleted successfully",
+        severity: "success",
+      });
+
+    } catch (err) {
+
+      setSnackbar({
+        open: true,
+        message: "Delete failed",
+        severity: "error",
+      });
+
+    }
+
+  };
+
+  const handleSave = async (form) => {
+
+    try {
+
+      if (selectedSecret) {
+
+        await secretService.updateSecret(
+          selectedSecret.id,
+          form
+        );
+
+        setSnackbar({
+          open: true,
+          message: "Secret updated successfully",
+          severity: "success",
+        });
+
+      } else {
+
+        await secretService.createSecret(form);
+
+        setSnackbar({
+          open: true,
+          message: "Secret created successfully",
+          severity: "success",
+        });
+
+      }
+
+      setDialogOpen(false);
+
+      loadData();
+
+    } catch (err) {
+
+      console.error(err);
+
+      setSnackbar({
+        open: true,
+        message: "Save failed",
+        severity: "error",
+      });
+
+    }
+
+  };
+
+  return (
+
+    <Box
+      sx={{
+        display: "flex",
+        minHeight: "100vh",
+        bgcolor: "#F5F7FB",
+      }}
+    >
+
+      <Sidebar />
+
+      <Box sx={{ flex: 1, p: 3 }}>
+
+        <Header />
+
+        <Container maxWidth="xl">
+
+          <Typography
+            variant="h4"
+            fontWeight={700}
+            mb={3}
+          >
+            Secret Inventory
+          </Typography>
+
+          <Stack
+            direction="row"
+            spacing={2}
+            mb={3}
+          >
+
+            <TextField
+              label="Search Secret"
+              value={search}
+              onChange={(e) =>
+                setSearch(e.target.value)
+              }
+              sx={{ width: 300 }}
+            />
+
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleAdd}
+            >
+              Add Secret
+            </Button>
+
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={loadData}
+            >
+              Refresh
+            </Button>
+
+          </Stack>
+
+          {loading ? (
+
+            <Box
+              display="flex"
+              justifyContent="center"
+              mt={8}
+            >
+              <CircularProgress />
+            </Box>
+
+          ) : (
+
+            <SecretTable
+              secrets={filteredSecrets}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+
+          )}
+
+        </Container>
+
+      </Box>
+
+      <SecretDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSave={handleSave}
+        secret={selectedSecret}
+        servers={servers}
+      />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() =>
+          setSnackbar({
+            ...snackbar,
+            open: false,
+          })
+        }
+      >
+        <Alert
+          severity={snackbar.severity}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
+    </Box>
+
+  );
+
+}
+
+export default SecretInventory;
+
+...
+
+App
+import SecretInventory from "./pages/SecretInventory";
+
+<Route
+    path="/secrets"
+    element={<SecretInventory />}
+/>
+
+side bar
+{
+    text: "Secret Inventory",
+    icon: <VpnKeyIcon />,
+    path: "/secrets"
+}
+import VpnKeyIcon from "@mui/icons-material/VpnKey";
